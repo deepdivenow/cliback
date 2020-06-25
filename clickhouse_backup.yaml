@@ -1,0 +1,14 @@
+backup_storage:
+#  type: sftp
+#  backup_conn:
+#    hostname: 'stich'
+#    username: 'dro'
+#    port: 30022
+#    key_filename: '/home/dro/.ssh/id_rsa'
+  type: local
+  backup_dir: '/tmp/click_back'
+clickhouse_dir: '/tmp/click'
+clickhouse_backup_conn:
+  hostname: centos01
+clickhouse_restore_conn:
+  hostname: centos09
