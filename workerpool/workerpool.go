@@ -3,6 +3,7 @@ package workerpool
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 type TaskElem interface {}
 type Task interface {
@@ -45,11 +46,19 @@ func (wp *WorkerPool)Get_Results_Chan() (<-chan TaskElem) {
 func (wp *WorkerPool) workerFunc (id int) {
 	defer wp.wg.Done()
 	for job := range wp.jobs_chan {
-		job,err:=wp.task.Run(job)
-		if err != nil {
-			fmt.Print("Job is fail")
+		job_complete := false
+		var job_result TaskElem
+		var err error
+ 		for !job_complete {
+			job_result, err = wp.task.Run(job)
+			if err != nil {
+				fmt.Print("Job is fail")
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			job_complete=true
 		}
-		wp.results_chan <- job
+		wp.results_chan <- job_result
 	}
 }
 

@@ -28,7 +28,7 @@ type config struct {
 	ShadowDir             string        `yaml:"-"`
 	ClickhouseBackupConn  connection    `yaml:"clickhouse_backup_conn"`
 	ClickhouseRestoreConn connection    `yaml:"clickhouse_restore_conn"`
-	//backup_filter interface{}    `yaml:"backup_filter"`
+	BackupFilter map[string][]string    `yaml:"backup_filter"`
 }
 
 var (

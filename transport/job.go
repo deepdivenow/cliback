@@ -1,5 +1,7 @@
 package transport
 
+import "bytes"
+
 type RunJobType int
 
 const (
@@ -15,6 +17,17 @@ type CliFile struct {
 	Sha1 string
 }
 
+type MetaFile struct {
+	Name string
+	Path string
+	TryRetry bool
+	Sha1 string
+	Content bytes.Buffer
+}
+
 func (cf *CliFile) Archive() (string)  {
 	return cf.Path+".gz"
+}
+func (mf *MetaFile) Archive() (string)  {
+	return mf.Path+".gz"
 }
