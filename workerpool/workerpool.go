@@ -1,7 +1,7 @@
 package workerpool
 
 import (
-	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -22,6 +22,7 @@ type WorkerPool struct{
 	results_chan chan TaskElem
 	num_workers  int
 	num_retry    int
+	need_retry	 bool
 	wg           sync.WaitGroup
 }
 
@@ -51,8 +52,8 @@ func (wp *WorkerPool) workerFunc (id int) {
 		var err error
  		for !job_complete {
 			job_result, err = wp.task.Run(job)
-			if err != nil {
-				fmt.Print("Job is fail")
+			if wp.need_retry && err != nil {
+				log.Print("Job is fail",err)
 				time.Sleep(2 * time.Second)
 				continue
 			}

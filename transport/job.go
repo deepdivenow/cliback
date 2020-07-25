@@ -1,6 +1,9 @@
 package transport
 
-import "bytes"
+import (
+	"bytes"
+	"path"
+)
 
 type RunJobType int
 
@@ -16,6 +19,12 @@ type CliFile struct {
 	TryRetry bool
 	Sha1 string
 }
+func (cf *CliFile) Archive() (string)  {
+	return path.Join(cf.Path,cf.Name+".gz")
+}
+func (cf *CliFile) RestoreDest() (string)  {
+	return path.Join(cf.Path,"detached",cf.Name)
+}
 
 type MetaFile struct {
 	Name string
@@ -25,9 +34,10 @@ type MetaFile struct {
 	Content bytes.Buffer
 }
 
-func (cf *CliFile) Archive() (string)  {
-	return cf.Path+".gz"
-}
 func (mf *MetaFile) Archive() (string)  {
-	return mf.Path+".gz"
+	return path.Join(mf.Path,mf.Name+".gz")
+}
+
+func (mf *MetaFile) FPath() (string)  {
+	return path.Join(mf.Path,mf.Name)
 }

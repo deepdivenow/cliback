@@ -12,6 +12,7 @@ type transport struct{
 	Writer io.Writer
 	Sha1Sum hash.Hash
 	Closer []io.Closer
+	Ready bool
 }
 
 func (t *transport) Close() error{
@@ -19,6 +20,13 @@ func (t *transport) Close() error{
 		h.Close()
 	}
 	return nil
+}
+
+func (t *transport) Cleanup() error{
+	if t.Ready{
+		return nil
+	}
+	return t.Close()
 }
 
 func (t *transport) Copy() (int64,error){

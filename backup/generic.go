@@ -16,7 +16,7 @@ type table_info struct {
 	Dirs []string       `json:"dirs"`
 	Files map[string]file_info `json:"files"`
 }
-type database_info_v1 struct {
+type database_info struct {
 	Size uint64       `json:"size"`
 	BSize uint64      `json:"bsize"`
 	RepoSize uint64   `json:"repo_size"`
@@ -24,15 +24,7 @@ type database_info_v1 struct {
 	Tables map[string]table_info  `json:"tables"`
 	MetaData map[string]file_info `json:"metadata"`
 }
-type database_info_v2 struct {
-	Size uint64       `json:"size"`
-	BSize uint64      `json:"bsize"`
-	RepoSize uint64   `json:"repo_size"`
-	RepoBSize uint64  `json:"repo_bsize"`
-	Tables []string   `json:"tables"`
-	MetaData map[string]file_info `json:"metadata"`
-}
-type backup_info_v1 struct {
+type backup_info struct {
 	Size uint64       `json:"size"`
 	BSize uint64      `json:"bsize"`
 	RepoSize uint64   `json:"repo_size"`
@@ -43,21 +35,7 @@ type backup_info_v1 struct {
 	StartDate string  `json:"start_date"`
 	StopDate string   `json:"stop_date"`
 	Reference []string `json:"reference"`
-	DBS map[string]database_info_v1 `json:"dbs"`
-	BackupFilter map[string][]string `json:"filter"`
-}
-type backup_info_v2 struct {
-	Size uint64       `json:"size"`
-	BSize uint64      `json:"bsize"`
-	RepoSize uint64   `json:"repo_size"`
-	RepoBSize uint64  `json:"repo_bsize"`
-	Name string       `json:"name"`
-	Type string       `json:"type"`
-	Version uint      `json:"version"`
-	StartDate string  `json:"start_date"`
-	StopDate string   `json:"stop_date"`
-	Reference []string `json:"reference"`
-	DBS map[string]database_info_v2 `json:"dbs"`
+	DBS map[string]database_info `json:"dbs"`
 	BackupFilter map[string][]string `json:"filter"`
 }
 

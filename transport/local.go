@@ -103,6 +103,7 @@ func ReadMetaLocal(mf MetaFile) (MetaFile,error){
 	defer gzw.Close()
 	mwr := io.MultiWriter(sha1sum, dest)
 	_,err=io.Copy(mwr,gzw)
+	dest.Flush()
 	if err != nil {
 		return mf,err
 	}

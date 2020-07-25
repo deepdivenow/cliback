@@ -1,11 +1,14 @@
 package database
 
 import (
+	"cliback/config"
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
+	"log"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -34,8 +37,28 @@ func New() *ChDb {
 	return chdb_instance
 }
 
-func (ch *ChDb) SetDSN(dsn string) {
-	ch.dsn=dsn
+func (ch *ChDb) SetDSN(dsn config.Connection) {
+	var host,port string
+	if len(dsn.HostName) > 0{
+		host = dsn.HostName
+	} else {
+		host = "localhost"
+	}
+	if dsn.Port < 1{
+		port="9000"
+	} else {
+		port=strconv.FormatUint(uint64(dsn.Port),10)
+	}
+	if len(dsn.UserName) > 0{
+		if len(dsn.Password) > 0{
+			ch.dsn=fmt.Sprintf("tcp://%s:%s@%s:%s",dsn.UserName,dsn.Password,host,port)
+		} else {
+			ch.dsn=fmt.Sprintf("tcp://%s@%s:%s",dsn.UserName,host,port)
+		}
+
+		} else {
+		ch.dsn=fmt.Sprintf("tcp://%s:%s",host,port)
+	}
 }
 
 func (ch *ChDb) Close() error {
@@ -228,16 +251,20 @@ func (ch *ChDb) CreateTable(db,table,meta string) (error) {
 	if ch.metaopts.cut_replicated {
 		meta = ReplaceCutReplicatedTable(meta)
 	}
+	log.Printf("Create Table:\n%s",meta)
 	_,err:=ch.Execute(meta)
 	return err
 }
 func (ch *ChDb) AttachPartition(db,table,part string) (error){
-	var query string
+	var query,log_format string
 	if re_match, _ := regexp.MatchString("\\d+", part); re_match{
 		query=fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION %s",db,table,part)
+		log_format="Attach integer part `%s`.`%s`.%s"
 	} else {
 		query=fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION '%s'",db,table,part)
+		log_format="Attach string part `%s`.`%s`.'%s'"
 	}
+	log.Printf(log_format,db,table,part)
 	_,err:=ch.Execute(query)
 	return err
 }

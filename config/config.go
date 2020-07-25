@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-type connection struct {
+type Connection struct {
 	HostName string  `yaml:"hostname"`
 	UserName string  `yaml:"username,omitempty"`
 	Password string  `yaml:"password,omitempty"`
@@ -19,16 +19,32 @@ type connection struct {
 type backupStorage struct {
 	Type       string     `yaml:"type"`
 	BackupDir  string     `yaml:"backup_dir"`
-	BackupConn connection `yaml:"backup_conn"`
+	BackupConn Connection `yaml:"backup_conn"`
+}
+
+type RunJobType int
+
+const (
+	Backup RunJobType = iota + 1
+	Restore
+	Info
+)
+
+type taskargs struct {
+	JobType	   RunJobType
+	JobName    string
+	JobPartition string
+	Debug bool
 }
 
 type config struct {
-	BackupStorage         backupStorage `yaml:"backup_storage"`
-	ClickhouseDir         string        `yaml:"clickhouse_dir"`
-	ShadowDir             string        `yaml:"-"`
-	ClickhouseBackupConn  connection    `yaml:"clickhouse_backup_conn"`
-	ClickhouseRestoreConn connection    `yaml:"clickhouse_restore_conn"`
-	BackupFilter map[string][]string    `yaml:"backup_filter"`
+	BackupStorage         backupStorage       `yaml:"backup_storage"`
+	ClickhouseDir         string              `yaml:"clickhouse_dir"`
+	ShadowDir             string              `yaml:"-"`
+	TaskArgs              taskargs            `yaml:"-"`
+	ClickhouseBackupConn  Connection          `yaml:"clickhouse_backup_conn"`
+	ClickhouseRestoreConn Connection          `yaml:"clickhouse_restore_conn"`
+	BackupFilter          map[string][]string `yaml:"backup_filter"`
 }
 
 var (
@@ -43,16 +59,18 @@ func New() *config {
 	return instance
 }
 
-func (c *config) Read(filename string)(*config)  {
+func (c *config) Read(filename string)(error)  {
 	yamlFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
+		return err
 	}
 	err = yaml.Unmarshal(yamlFile, c)
 	if err != nil {
-		log.Fatalf("Unmarshal: %v", err)
+		log.Printf("Unmarshal: %v", err)
+		return err
 	}
-	return c
+	return nil
 }
 
 func (c *config) Print() {

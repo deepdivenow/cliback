@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func check_backupv1_type(bi *backup_info_v1) error{
+func check_backup_type(bi *backup_info) error{
 	if len(bi.BackupFilter)<1{
 		errors.New("BackupFilter not parsed")
 	}
@@ -36,8 +36,8 @@ func check_backupv1_type(bi *backup_info_v1) error{
 	return nil
 }
 
-func TestBackupv1Read(t *testing.T){
-	bi := new(backup_info_v1)
+func TestBackupRead(t *testing.T){
+	bi := new(backup_info)
 	jFile, err := ioutil.ReadFile("test_backup_v1.json")
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
@@ -46,7 +46,7 @@ func TestBackupv1Read(t *testing.T){
 	if err != nil {
 		log.Fatalf("Unmarshal: %v", err)
 	}
-	err = check_backupv1_type(bi)
+	err = check_backup_type(bi)
 	if err != nil{
 		t.Error(err.Error())
 	}
@@ -56,7 +56,7 @@ func TestBackupv1Read(t *testing.T){
 func TestMetaTransportLocalRead(t *testing.T)  {
 	c := config.New()
 	c.BackupStorage.BackupDir="/home/dro/go-1.13/src/cliback/backup"
-	bi := new(backup_info_v1)
+	bi := new(backup_info)
 	mf := transport.MetaFile{
 		Name:     "Test",
 		Path:     "test_backup_v1.json",
@@ -72,7 +72,7 @@ func TestMetaTransportLocalRead(t *testing.T)  {
 	if err != nil {
 		t.Errorf("Unmarshal: %v", err)
 	}
-	err = check_backupv1_type(bi)
+	err = check_backup_type(bi)
 	if err != nil{
 		t.Error(err.Error())
 	}

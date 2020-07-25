@@ -7,8 +7,8 @@ backup_storage:
     key_filename: '/home/dro/.ssh/id_rsa'
 #  type: local
   backup_dir: '/work/click_back'
-clickhouse_dir: '/tmp/click'
+clickhouse_dir: '/tmp/click2'
 clickhouse_backup_conn:
   hostname: centos01
 clickhouse_restore_conn:
-  hostname: centos09
+  hostname: centos08

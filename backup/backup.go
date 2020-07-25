@@ -3,7 +3,6 @@ package backup
 import (
 	"cliback/config"
 	"cliback/database"
-	"cliback/sftp_pool"
 	"cliback/transport"
 	"cliback/workerpool"
 	"encoding/hex"
@@ -12,7 +11,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 )
 
 func FindFiles(dir_for_backup string, jobs_chan chan<- workerpool.TaskElem) {
@@ -40,7 +38,7 @@ func FindFiles(dir_for_backup string, jobs_chan chan<- workerpool.TaskElem) {
 	close(jobs_chan)
 }
 
-func Run(cf transport.CliFile) (transport.CliFile, error) {
+func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
 	tr, err := transport.MakeTransport(cf)
 	if err != nil {
 		return transport.CliFile{}, err
@@ -109,20 +107,20 @@ func Backup_OLD() {
 	c := config.New()
 	c.Read("/home/dro/go-1.13/src/cliback/clickhouse_backup.yaml")
 	c.SetShadow("/home/dro/.thunderbird")
-	sp:=sftp_pool.New()
+	//sp:=sftp_pool.New()
 	//Move to backup/restore function
-	sp.SetSSHConfig(map[string]string{
-		"user": c.BackupStorage.BackupConn.UserName,
-		"pass": c.BackupStorage.BackupConn.Password,
-		"remote": c.BackupStorage.BackupConn.HostName,
-		"port": ":"+strconv.Itoa(int(c.BackupStorage.BackupConn.Port)),
-		"public_key": c.BackupStorage.BackupConn.KeyFilename,
-	})
+	//sp.SetSSHConfig(map[string]string{
+	//	"user": c.BackupStorage.BackupConn.UserName,
+	//	"pass": c.BackupStorage.BackupConn.Password,
+	//	"remote": c.BackupStorage.BackupConn.HostName,
+	//	"port": ":"+strconv.Itoa(int(c.BackupStorage.BackupConn.Port)),
+	//	"public_key": c.BackupStorage.BackupConn.KeyFilename,
+	//})
 	///
 
 	var wp_task workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
-		return Run(field)
+		return BackupRun(field)
 	}
 
 	wp := workerpool.MakeWorkerPool(wp_task, 4, 3, 10)

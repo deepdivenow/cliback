@@ -18,39 +18,39 @@ import (
 func MakeBackupTransportSFTP(file CliFile) (*transport,error) {
 	c := config.New()
 	t := new(transport)
+	defer t.Cleanup()
 	t.Sha1Sum = sha1.New()
 	sp:=sftp_pool.New()
 	sftp_cli,err:=sp.GetClient()
 	if err != nil{
-		log.Println(err)
 		return t,err
 	}
+	t.Closer = append(t.Closer, sp.MakeReleaseCloser(sftp_cli))
 	dest_file := path.Join(c.BackupStorage.BackupDir,file.Archive())
 	sftp_cli.MkdirAll(path.Dir(dest_file))
 	dest,err := sftp_cli.Create(dest_file)
 	if err != nil {
-		log.Println(err)
 		return t,err
 	}
+	t.Closer = append(t.Closer, dest)
 	source,err := os.Open(path.Join(c.ShadowDir,file.Path))
 	if err != nil {
-		log.Println(err)
 		return t,err
 	}
-	gzw := gzip.NewWriter(dest)
-	mwr := io.MultiWriter(gzw,t.Sha1Sum)
 	t.Closer = append(t.Closer, source)
+	gzw := gzip.NewWriter(dest)
 	t.Closer = append(t.Closer, gzw)
-	t.Closer = append(t.Closer, dest)
-	t.Closer = append(t.Closer, sp.MakeReleaseCloser(sftp_cli))
+	mwr := io.MultiWriter(gzw,t.Sha1Sum)
 	t.Writer = mwr
 	t.Reader = source
+	t.Ready=true
 	return t,nil
 }
 
 func MakeRestoreTransportSFTP(file CliFile) (*transport,error) {
 	c := config.New()
 	t := new(transport)
+	defer t.Cleanup()
 	t.Sha1Sum = sha1.New()
 
 	sp:=sftp_pool.New()
@@ -58,29 +58,28 @@ func MakeRestoreTransportSFTP(file CliFile) (*transport,error) {
 	if err != nil{
 		return t,err
 	}
-	source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,file.Archive()))
+	t.Closer = append(t.Closer, sp.MakeReleaseCloser(sftp_cli))
+	source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName,file.Archive()))
 	if err != nil {
-		log.Println(err)
 		return t,err
 	}
-	dest_file := path.Join(c.ClickhouseDir,"data",file.Path)
+	t.Closer = append(t.Closer, source)
+	dest_file := path.Join(c.ClickhouseDir,"data",file.RestoreDest())
 	MakeDirsRecurse(path.Dir(dest_file))
 	dest,err := os.Create(dest_file)
 	if err != nil {
-		log.Println(err)
 		return t, err
 	}
+	t.Closer = append(t.Closer, dest)
 	gzw,err := gzip.NewReader(source)
 	if err != nil {
 		return t,err
 	}
-	mwr := io.MultiWriter(t.Sha1Sum, dest)
-	t.Closer = append(t.Closer, source)
 	t.Closer = append(t.Closer, gzw)
-	t.Closer = append(t.Closer, dest)
-	t.Closer = append(t.Closer, sp.MakeReleaseCloser(sftp_cli))
+	mwr := io.MultiWriter(t.Sha1Sum, dest)
 	t.Writer = mwr
 	t.Reader = gzw
+	t.Ready=true
 	return t,nil
 }
 
@@ -116,7 +115,6 @@ func ReadMetaSFTP(mf MetaFile) (MetaFile,error){
 	c := config.New()
 	sha1sum := sha1.New()
 	dest:=bufio.NewWriter(&mf.Content)
-
 	sp:=sftp_pool.New()
 	sftp_cli,err:=sp.GetClient()
 	if err != nil{
@@ -124,37 +122,40 @@ func ReadMetaSFTP(mf MetaFile) (MetaFile,error){
 	}
 	defer sp.ReleaseClient(sftp_cli)
 	var compressed bool
-	_,err=sftp_cli.Stat(path.Join(c.BackupStorage.BackupDir,mf.Archive()))
+	_,err=sftp_cli.Stat(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName,mf.Archive()))
 	if err == nil {
 		compressed=true
 	}else{
-		_, err = sftp_cli.Stat(path.Join(c.BackupStorage.BackupDir, mf.Path))
+		_, err = sftp_cli.Stat(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName, mf.FPath()))
 		if err != nil {
-			log.Println(err)
+			if c.TaskArgs.Debug {
+				log.Println(err)
+			}
 			return mf,err
 		}
 	}
 	if (compressed) {
-		source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,mf.Archive()))
+		source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName,mf.Archive()))
 		if err != nil {
 			log.Println(err)
 			return mf,err
 		}
 		defer source.Close()
-		gzw,err := gzip.NewReader(source)
+		gzr,err := gzip.NewReader(source)
 		if err != nil {
 			return mf,err
 		}
-		defer gzw.Close()
+		defer gzr.Close()
 		mwr := io.MultiWriter(sha1sum, dest)
-		_,err=io.Copy(mwr,gzw)
+		_,err=io.Copy(mwr,gzr)
+		dest.Flush()
 		if err != nil {
 			return mf,err
 		}
 		mf.Sha1 = hex.EncodeToString(sha1sum.Sum(nil))
 		return mf,nil
 	} else {
-		source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,mf.Path))
+		source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName,mf.FPath()))
 		if err != nil {
 			log.Println(err)
 			return mf,err
