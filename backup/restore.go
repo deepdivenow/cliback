@@ -43,6 +43,7 @@ func Restore() error{
 	log.Printf("Restore Job Name: %s", c.TaskArgs.JobName)
 	ch:=database.New()
 	ch.SetDSN(c.ClickhouseRestoreConn)
+	ch.SetMetaOpts(c.ClickhouseRestoreOpts)
 	defer ch.Close()
 	switch bi.Version{
 	case 1:

@@ -12,3 +12,5 @@ clickhouse_backup_conn:
   hostname: centos01
 clickhouse_restore_conn:
   hostname: centos08
+clickhouse_restore_opts:
+  replace_replicated_to_default: True

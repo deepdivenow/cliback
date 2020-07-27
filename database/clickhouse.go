@@ -20,7 +20,7 @@ var (
 )
 
 type ChMetaOpts struct {
-	cut_replicated bool
+	cutReplicated bool
 }
 
 type ChDb struct {
@@ -60,6 +60,10 @@ func (ch *ChDb) SetDSN(dsn config.Connection) {
 		} else {
 		ch.dsn=fmt.Sprintf("tcp://%s:%s",host,port)
 	}
+}
+
+func (ch *ChDb) SetMetaOpts(cm config.ChMetaOpts) {
+	ch.metaopts.cutReplicated =cm.CutReplicated
 }
 
 func (ch *ChDb) Close() error {
@@ -264,11 +268,11 @@ func ReplaceCutReplicatedTable(meta string) (string){
 		args_str:= "(" + strings.Join(args[2:],",")
 		return meta[:engine_label_pos[0]]+"ENGINE = MergeTree"+args_str
 	}
-	return meta[:engine_label_pos[0]]+"ENGINE = MergeTree"+meta[engine_label_pos[1]:]
+	return meta[:engine_label_pos[0]]+"ENGINE = MergeTree()\n "+meta[end_pos:]
 }
 func (ch *ChDb) CreateTable(db,table,meta string) (error) {
 	meta=ReplaceAttachToCreateTable(db,table,meta)
-	if ch.metaopts.cut_replicated {
+	if ch.metaopts.cutReplicated {
 		meta = ReplaceCutReplicatedTable(meta)
 	}
 	log.Printf("Create Table:\n%s",meta)

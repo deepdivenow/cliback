@@ -37,6 +37,10 @@ type taskargs struct {
 	Debug bool
 }
 
+type ChMetaOpts struct {
+	CutReplicated bool `yaml:"replace_replicated_to_default"`
+}
+
 type config struct {
 	BackupStorage         backupStorage       `yaml:"backup_storage"`
 	ClickhouseDir         string              `yaml:"clickhouse_dir"`
@@ -44,6 +48,7 @@ type config struct {
 	TaskArgs              taskargs            `yaml:"-"`
 	ClickhouseBackupConn  Connection          `yaml:"clickhouse_backup_conn"`
 	ClickhouseRestoreConn Connection          `yaml:"clickhouse_restore_conn"`
+	ClickhouseRestoreOpts ChMetaOpts          `yaml:"clickhouse_restore_opts"`
 	BackupFilter          map[string][]string `yaml:"backup_filter"`
 }
 
