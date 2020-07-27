@@ -105,3 +105,14 @@ func TestReplaceReplicatedMetav2(t *testing.T) {
 		t.Error("Meta replicationMergeTree BAD replace")
 	}
 }
+
+func TestPartRE(t *testing.T){
+	test1:=isInteregerPart("2013-17-02")
+	if test1{
+		t.Error("TestPartInt Fail is NOT int")
+	}
+	test2:=isInteregerPart("20131701")
+	if !test2{
+		t.Error("TestPartInt Fail is int")
+	}
+}

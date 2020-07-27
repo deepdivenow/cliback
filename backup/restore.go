@@ -82,10 +82,19 @@ func Restorev1(bi *backup_info) error{
 			if err != nil{
 				log.Println(err)
 			}
-			for _,part:=range(table_info.Partitions){
-				err=ch.AttachPartition(db,table,part)
-				if err!=nil{
-					log.Printf("Error Attach partition `%s`.`%s`.%s",db,table,part)
+			if len(table_info.Partitions) == 1 && table_info.Partitions[0] == "tuple()"{
+				for _, dir := range (table_info.Dirs) {
+					err = ch.AttachPartitionByDir(db,table,dir)
+					if err != nil {
+						log.Printf("Error Attach dir `%s`.`%s`.%s", db, table, dir)
+					}
+				}
+			} else {
+				for _, part := range (table_info.Partitions) {
+					err = ch.AttachPartition(db, table, part)
+					if err != nil {
+						log.Printf("Error Attach partition `%s`.`%s`.%s", db, table, part)
+					}
 				}
 			}
 		}

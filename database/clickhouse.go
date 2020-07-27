@@ -279,21 +279,27 @@ func (ch *ChDb) CreateTable(db,table,meta string) (error) {
 	_,err:=ch.Execute(meta)
 	return err
 }
+func isInteregerPart(part string) (bool) {
+	re_match, _ := regexp.MatchString("^\\d+$", part)
+	return re_match
+}
+
 func (ch *ChDb) AttachPartition(db,table,part string) (error){
-	var query,log_format string
-	if re_match, _ := regexp.MatchString("\\d+", part); re_match{
-		query=fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION %s",db,table,part)
-		log_format="Attach integer part `%s`.`%s`.%s"
+	var query, logFormat string
+	if isInteregerPart(part){
+		query =fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION %s",db,table,part)
+		logFormat ="Attach integer part `%s`.`%s`.%s"
 	} else {
-		query=fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION '%s'",db,table,part)
-		log_format="Attach string part `%s`.`%s`.'%s'"
+		query =fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION '%s'",db,table,part)
+		logFormat ="Attach string part `%s`.`%s`.'%s'"
 	}
-	log.Printf(log_format,db,table,part)
+	log.Printf(logFormat,db,table,part)
 	_,err:=ch.Execute(query)
 	return err
 }
 func (ch *ChDb) AttachPartitionByDir(db,table,dir string) (error){
 	query:=fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION ID '%s'",db,table,dir)
+	log.Printf("Attach Unknown part AS dir `%s`.`%s`.%s",db,table,dir)
 	_,err:=ch.Execute(query)
 	return err
 }
