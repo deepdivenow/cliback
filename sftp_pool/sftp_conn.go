@@ -28,13 +28,18 @@ func MakeSshClientConfig(c map[string]string) (ssh.ClientConfig){
 			ssh_auth=append(ssh_auth,pkey)
 		}
 	}
-	config := ssh.ClientConfig{
+
+
+
+	clientConfig := ssh.ClientConfig{
 		User: c["user"],
 		Auth: ssh_auth,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		//HostKeyCallback: ssh.FixedHostKey(hostKey),
 	}
-	return config
+	clientConfig.SetDefaults()
+	clientConfig.Ciphers = append(clientConfig.Ciphers, "diffie-hellman-group-exchange-sha256")
+	return clientConfig
 }
 
 func publicKey(path string) (ssh.AuthMethod,error) {
