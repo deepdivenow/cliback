@@ -21,7 +21,7 @@ func MakeBackupTransportSFTP(file CliFile) (*transport,error) {
 	defer t.Cleanup()
 	t.Sha1Sum = sha1.New()
 	sp:=sftp_pool.New()
-	sftp_cli,err:=sp.GetClient()
+	sftp_cli,err:=sp.GetClientLoop()
 	if err != nil{
 		return t,err
 	}
@@ -52,9 +52,8 @@ func MakeRestoreTransportSFTP(file CliFile) (*transport,error) {
 	t := new(transport)
 	defer t.Cleanup()
 	t.Sha1Sum = sha1.New()
-
 	sp:=sftp_pool.New()
-	sftp_cli,err:=sp.GetClient()
+	sftp_cli,err:=sp.GetClientLoop()
 	if err != nil{
 		return t,err
 	}
@@ -87,7 +86,7 @@ func WriteMetaSFTP(mf MetaFile) error{
 	c := config.New()
 	sha1sum := sha1.New()
 	sp:=sftp_pool.New()
-	sftp_cli,err:=sp.GetClient()
+	sftp_cli,err:=sp.GetClientLoop()
 	if err != nil{
 		return err
 	}
@@ -116,7 +115,7 @@ func ReadMetaSFTP(mf MetaFile) (MetaFile,error){
 	sha1sum := sha1.New()
 	dest:=bufio.NewWriter(&mf.Content)
 	sp:=sftp_pool.New()
-	sftp_cli,err:=sp.GetClient()
+	sftp_cli,err:=sp.GetClientLoop()
 	if err != nil{
 		return mf,err
 	}
@@ -175,7 +174,7 @@ func SearchMetaSFTP() ([]string,error){
 	var bnames []string
 	c := config.New()
 	sp:=sftp_pool.New()
-	sftp_cli,err:=sp.GetClient()
+	sftp_cli,err:=sp.GetClientLoop()
 	if err != nil{
 		return bnames,err
 	}

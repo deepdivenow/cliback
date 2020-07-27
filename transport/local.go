@@ -22,6 +22,7 @@ func MakeDirsRecurse(path string){
 func MakeBackupTransportLocal(file CliFile) (*transport,error) {
 	c := config.New()
 	t := new(transport)
+	defer t.Cleanup()
 	t.Sha1Sum = sha1.New()
 	dest_file := path.Join(c.BackupStorage.BackupDir,file.Archive())
 	MakeDirsRecurse(path.Dir(dest_file))
@@ -29,41 +30,45 @@ func MakeBackupTransportLocal(file CliFile) (*transport,error) {
 	if err != nil {
 		return nil, err
 	}
+	t.Closer = append(t.Closer, dest)
 	source,err := os.Open(path.Join(c.ShadowDir,file.Path))
 	if err != nil {
 		return nil, err
 	}
-	gzw := gzip.NewWriter(dest)
-	mwr := io.MultiWriter(gzw,t.Sha1Sum)
 	t.Closer = append(t.Closer, source)
+	gzw := gzip.NewWriter(dest)
 	t.Closer = append(t.Closer, gzw)
-	t.Closer = append(t.Closer, dest)
+	mwr := io.MultiWriter(gzw,t.Sha1Sum)
 	t.Writer = mwr
 	t.Reader = source
+	t.Ready=true
 	return t,nil
 }
+
 func MakeRestoreTransportLocal(file CliFile) (*transport,error){
 	c := config.New()
 	t := new(transport)
+	defer t.Cleanup()
 	t.Sha1Sum = sha1.New()
 	source,err := os.Open(path.Join(c.BackupStorage.BackupDir,file.Archive()))
 	if err != nil {
 		return nil, err
 	}
+	t.Closer = append(t.Closer, source)
 	dest,err := os.Create(path.Join(c.ClickhouseDir,"data",file.Path))
 	if err != nil {
 		return nil,err
 	}
+	t.Closer = append(t.Closer, dest)
 	gzw,err := gzip.NewReader(source)
 	if err != nil {
 		return nil,err
 	}
-	mwr := io.MultiWriter(t.Sha1Sum, dest)
-	t.Closer = append(t.Closer, source)
 	t.Closer = append(t.Closer, gzw)
-	t.Closer = append(t.Closer, dest)
+	mwr := io.MultiWriter(t.Sha1Sum, dest)
 	t.Writer = mwr
 	t.Reader = gzw
+	t.Ready=true
 	return t,nil
 }
 

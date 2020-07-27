@@ -2,11 +2,14 @@ package sftp_pool
 
 import (
 	"cliback/config"
+	"container/list"
 	"errors"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	"log"
 	"strconv"
 	"sync"
+	"time"
 )
 
 var (
@@ -21,7 +24,7 @@ type SftpConn struct {
 }
 
 type SftpPool struct {
-	pool []SftpConn
+	pool *list.List
 	max_conn int
 	conn_in_use int
 	conn_opened int
@@ -40,6 +43,7 @@ func New() *SftpPool {
 		sftp_pool_instance.ssh_config["user"]=c.BackupStorage.BackupConn.UserName
 		sftp_pool_instance.ssh_config["pass"]=c.BackupStorage.BackupConn.Password
 		sftp_pool_instance.ssh_config["public_key"]=c.BackupStorage.BackupConn.KeyFilename
+		sftp_pool_instance.pool = new(list.List)
 	})
 	return sftp_pool_instance
 }
@@ -60,7 +64,8 @@ func (sp *SftpPool) GetClient() (*sftp.Client,error){
 	}
 	if(sp.conn_opened>sp.conn_in_use){
 		// Search unused connections
-		for _,p := range sp.pool{
+		for e:=sp.pool.Front(); e!=nil; e=e.Next(){
+			p:=e.Value.(SftpConn)
 			if *p.in_use { continue }
 			// Add here check connection
 			*p.in_use = true
@@ -74,7 +79,7 @@ func (sp *SftpPool) GetClient() (*sftp.Client,error){
 	}
 	bt:= new(bool)
 	*bt=true
-	sp.pool=append(sp.pool, SftpConn{
+	sp.pool.PushBack(SftpConn{
 		ssh_cli:  ssh_cli,
 		sftp_cli: sftp_cli,
 		in_use:   bt,
@@ -83,13 +88,46 @@ func (sp *SftpPool) GetClient() (*sftp.Client,error){
 	sp.conn_opened++
 	return sftp_cli,nil
 }
+
+func (sp *SftpPool) GetClientLoop() (*sftp.Client,error){
+	for {
+		sftp_client,err:=sp.GetClient()
+		if err != nil{
+			log.Printf("Error Get SFTP Client: %s", err)
+			time.Sleep(time.Second*5)
+			continue
+		}
+		return sftp_client,err
+	}
+}
+
+func (sp *SftpPool) CheckConnection(sftp_client *sftp.Client) error{
+	c:=config.New()
+	_,err:=sftp_client.Stat(c.BackupStorage.BackupDir)
+	return err
+}
+
+func (sp *SftpPool) RemoveConnection(e *list.Element) error{
+	p:=e.Value.(SftpConn)
+	sp.conn_opened--
+	p.sftp_cli.Close()
+	p.ssh_cli.Close()
+	sp.pool.Remove(e)
+	return nil
+}
+
 func (sp *SftpPool) ReleaseClient(sftp_client *sftp.Client) error{
 	sp.mux.Lock()
 	defer sp.mux.Unlock()
-	for _,p := range sp.pool{
+	for e:=sp.pool.Front(); e!=nil; e=e.Next(){
+		p:=e.Value.(SftpConn)
 		if p.sftp_cli == sftp_client{
 			*p.in_use=false
 			sp.conn_in_use--
+			err:=sp.CheckConnection(sftp_client)
+			if err!=nil{
+				sp.RemoveConnection(e)
+			}
 			// Check connection
 			return nil
 		}

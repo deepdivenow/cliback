@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -51,9 +52,9 @@ func (ch *ChDb) SetDSN(dsn config.Connection) {
 	}
 	if len(dsn.UserName) > 0{
 		if len(dsn.Password) > 0{
-			ch.dsn=fmt.Sprintf("tcp://%s:%s@%s:%s",dsn.UserName,dsn.Password,host,port)
+			ch.dsn=fmt.Sprintf("tcp://%s:%s?username=%s&password=%s",host,port,dsn.UserName,dsn.Password)
 		} else {
-			ch.dsn=fmt.Sprintf("tcp://%s@%s:%s",dsn.UserName,host,port)
+			ch.dsn=fmt.Sprintf("tcp://%s:%s?username=%s",host,port,dsn.UserName)
 		}
 
 		} else {
@@ -78,9 +79,9 @@ func (ch *ChDb) ReConnect() error {
 			return nil
 		} else {
 			if exception, ok := err.(*clickhouse.Exception); ok {
-				fmt.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+				log.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 			} else {
-				fmt.Println(err)
+				log.Println(err)
 			}
 			ch.Close()
 		}
@@ -91,25 +92,44 @@ func (ch *ChDb) ReConnect() error {
 	}
 	if err := connect.Ping(); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
-			fmt.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+			log.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		} else {
-			fmt.Println(err)
+			log.Println(err)
 		}
 		return err
 	}
 	ch.connect=connect
 	return nil
 }
+func (ch *ChDb) ReConnectLoop() error{
+	for {
+		err := ch.ReConnect()
+		if err!=nil{
+			log.Printf("Error connect to Clickhouse: %s. Sleep 5s",err)
+			time.Sleep(time.Second*5)
+			continue
+		}
+		return nil
+	}
+	return nil
+}
+
 func (ch *ChDb) Execute(q string) (sql.Result, error) {
 	ch.mux.Lock()
 	defer ch.mux.Unlock()
-	ch.ReConnect()
+	err:=ch.ReConnectLoop()
+	if err!=nil{
+		return nil, err
+	}
 	return ch.connect.Exec(q)
 }
 func (ch *ChDb) Query(q string) (*sql.Rows, error) {
 	ch.mux.Lock()
 	defer ch.mux.Unlock()
-	ch.ReConnect()
+	err:=ch.ReConnectLoop()
+	if err!=nil{
+		return nil, err
+	}
 	return ch.connect.Query(q)
 }
 func (ch *ChDb) GetDBS() ([]string, error) {
