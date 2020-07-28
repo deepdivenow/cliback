@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
+	"io/ioutil"
 	"log"
 	"path"
 	"regexp"
@@ -18,11 +19,9 @@ var (
 	once          sync.Once
 	chdb_instance *ChDb
 )
-
 type ChMetaOpts struct {
 	cutReplicated bool
 }
-
 type ChDb struct {
 	dsn string
 	connect *sql.DB
@@ -30,14 +29,12 @@ type ChDb struct {
 	mux sync.Mutex
 	metaopts ChMetaOpts
 }
-
 func New() *ChDb {
 	once.Do(func() {
 		chdb_instance = new(ChDb)
 	})
 	return chdb_instance
 }
-
 func (ch *ChDb) SetDSN(dsn config.Connection) {
 	var host,port string
 	if len(dsn.HostName) > 0{
@@ -61,7 +58,6 @@ func (ch *ChDb) SetDSN(dsn config.Connection) {
 		ch.dsn=fmt.Sprintf("tcp://%s:%s",host,port)
 	}
 }
-
 func (ch *ChDb) SetMetaOpts(cm config.ChMetaOpts) {
 	ch.metaopts.cutReplicated =cm.CutReplicated
 }
@@ -76,7 +72,6 @@ func (ch *ChDb) Close() error {
 	}
 	return nil
 }
-
 func (ch *ChDb) ReConnect() error {
 	if ch.connect != nil{
 		if err := ch.connect.Ping(); err == nil {
@@ -105,6 +100,7 @@ func (ch *ChDb) ReConnect() error {
 	ch.connect=connect
 	return nil
 }
+
 func (ch *ChDb) ReConnectLoop() error{
 	for {
 		err := ch.ReConnect()
@@ -197,7 +193,7 @@ func (ch *ChDb) GetPartitions(db,table,part string) ([]string, error) {
 	}
 	return result,nil
 }
-func (ch *ChDb) GetFNames(db,table,part string) (string, error) {
+func (ch *ChDb) GetFNames(db,table,part string) ([2]string, error) {
 	var result []string
 	var query string
 	if part=="" {
@@ -207,7 +203,7 @@ func (ch *ChDb) GetFNames(db,table,part string) (string, error) {
 	}
 	rows,err:=ch.Query(query)
 	if err != nil {
-		return "",err
+		return [2]string{},err
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -217,16 +213,17 @@ func (ch *ChDb) GetFNames(db,table,part string) (string, error) {
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return "",err
+		return [2]string{},err
 	}
 	f_path:=result[0]
 	if f_path[len(f_path)-1] == '/'{
 		f_path=f_path[:len(f_path)-1]
 	}
-	_,l_dir:=path.Split(f_path)
-	return l_dir,nil
+	dirs:=strings.Split(f_path,"/")
+	length:=len(dirs)
+	return [2]string{dirs[length-3],dirs[length-2]},nil
 }
-func (ch *ChDb) FreezeTable(db,table,part string) (error) {
+func (ch *ChDb) FreezeTable(db,table,part string) error {
 	var query string
 	if part=="" {
 		query=fmt.Sprintf("ALTER TABLE `%s`.`%s` FREEZE",db,table)
@@ -237,6 +234,24 @@ func (ch *ChDb) FreezeTable(db,table,part string) (error) {
 	}
 	_,err:=ch.Execute(query)
 	return err
+}
+func (ch *ChDb) GetIncrement() (int,error) {
+	c:=config.New()
+	b, err := ioutil.ReadFile(path.Join(c.ClickhouseDir,"shadow/increment.txt"))
+	if err != nil { return 0, err }
+
+	lines := strings.Split(string(b), "\n")
+	// Assign cap to avoid resize on every append.
+	for _, l := range lines {
+		// Empty line occurs at the end of the file when we use Split.
+		if len(l) == 0 { continue }
+		// Atoi better suits the job when we know exactly what we're dealing
+		// with. Scanf is the more general option.
+		n, err := strconv.Atoi(l)
+		if err != nil { return 0, err }
+		return n,nil
+	}
+	return 0,nil
 }
 func (ch *ChDb) CreateDatabase(db string) (error) {
 	var query string

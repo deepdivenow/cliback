@@ -34,6 +34,7 @@ type taskargs struct {
 	JobType	   RunJobType
 	JobName    string
 	JobPartition string
+	BackupType string
 	Debug bool
 }
 
