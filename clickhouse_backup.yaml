@@ -9,7 +9,7 @@ backup_storage:
   backup_dir: '/work/click_back'
 clickhouse_dir: '/tmp/click2'
 clickhouse_backup_conn:
-  hostname: centos01
+  hostname: centos08
 clickhouse_restore_conn:
   hostname: centos08
 clickhouse_restore_opts:

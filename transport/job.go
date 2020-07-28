@@ -13,6 +13,8 @@ const (
 )
 
 type CliFile struct {
+	Size uint64
+	BSize uint64
 	Name string
 	Path string
 	RunJobType RunJobType

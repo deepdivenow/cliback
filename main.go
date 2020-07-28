@@ -13,8 +13,9 @@ type MainArgs struct{
 	backupMode  bool
 	restoreMode bool
 	infoMode    bool
-	jobId          string
-	partId         string
+	jobId       string
+	partId      string
+	backupType  string
 }
 
 func (ma *MainArgs) parse_mode() error{
@@ -27,6 +28,16 @@ func (ma *MainArgs) parse_mode() error{
 	} else {
 		return errors.New("Bad command line args usage: backup/restore/info")
 	}
+}
+
+// Contains tells whether a contains x.
+func Contains(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
 }
 
 
@@ -43,9 +54,11 @@ func main() {
 	flag.StringVar(&cargs.configFile,"config","clickhouse_backup.yaml","path to config file")
 	flag.StringVar(&cargs.configFile,"c","clickhouse_backup.yaml","path to config file (shotland)")
 	flag.StringVar(&cargs.jobId,"jobid","","JobId for restore")
-	flag.StringVar(&cargs.jobId,"j","","JobId for restore")
-	flag.StringVar(&cargs.jobId,"partid","","PartId for backup OR restore")
-	flag.StringVar(&cargs.jobId,"p","","PartId for backup OR restore")
+	flag.StringVar(&cargs.jobId,"j","","JobId for restore (shotland)")
+	flag.StringVar(&cargs.backupType,"backup-type","","Backup type (default: full)")
+	flag.StringVar(&cargs.backupType,"t","","Backup type (default: full) (shotland)")
+	flag.StringVar(&cargs.jobId,"partid","","PartId for backup OR restore ")
+	flag.StringVar(&cargs.jobId,"p","","PartId for backup OR restore (shotland)")
 	flag.Parse()
 
 	err := cargs.parse_mode()
@@ -64,7 +77,11 @@ func main() {
 
 	c.TaskArgs.JobName=cargs.jobId
 	c.TaskArgs.JobPartition=cargs.partId
-
+	if len(cargs.backupType)>0 && Contains([]string{"full","diff","incr","part"},cargs.backupType){
+		c.TaskArgs.BackupType=cargs.backupType
+	} else {
+		c.TaskArgs.BackupType="full"
+	}
 	if cargs.infoMode {
 		c.TaskArgs.JobType=config.Info
 		err=backup.Info()
@@ -80,13 +97,5 @@ func main() {
 	if err != nil{
 		log.Fatal(err)
 	}
-
-	//println("hello")
-	//
-	//a,_:=transport.SearchMeta()
-	//println(a)
-	//c.BackupStorage.BackupDir=path.Join(c.BackupStorage.BackupDir,"20200327_065237P")
-	//c.SetShadow("/home/dro/.thunderbird")
-	//backup.Restore()
 	log.Println("Exit")
 }
