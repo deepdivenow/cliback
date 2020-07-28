@@ -14,30 +14,42 @@ import (
 	"time"
 )
 
-func Restore() error{
-	// Main restore loop
-	//var restore_objects map[string][]string
+func GetMetaForRestore() (*backup_info,error){
+	var bi *backup_info
 	metas,err := transport.SearchMeta()
 	if err != nil{
-		return err
+		return bi,err
 	}
 	if len(metas) < 1{
-		return errors.New("No backups for restore")
+		return bi,errors.New("No backups for restore")
 	}
-
 	c:=config.New()
 	backup_name := c.TaskArgs.JobName
 	if len(c.TaskArgs.JobName) > 0 {
 		if !Contains(metas,c.TaskArgs.JobName){
-			return errors.New("Job #{c.TaskArgs.JobName} not exists for restore")
+			return bi,errors.New("Job #{c.TaskArgs.JobName} not exists for restore")
 		}
 	} else {
-		log.Printf("Start Restore job: last")
-		backup_name = metas[len(metas)-1]
-		c.TaskArgs.JobName = backup_name
+		log.Printf("Start Restore job: `Last`")
+		for i := len(metas)-1; i >= 0; i-- {
+			backup_name = metas[i]
+			c.TaskArgs.JobName = backup_name
+			log.Printf("Try read meta for backup: %s",backup_name)
+			bi,err=BackupRead(backup_name)
+			if err != nil{
+				log.Printf("Read meta for backup: %s, Fail %s",backup_name,err)
+				continue
+			}
+			return bi,nil
+		}
 	}
-	bi, err := BackupRead(backup_name)
-	if err != nil{
+	return bi,errors.New("No backups for restore")
+}
+
+func Restore() error{
+	c:=config.New()
+	bi,err:=GetMetaForRestore()
+	if err!= nil {
 		return err
 	}
 	log.Printf("Restore Job Name: %s", c.TaskArgs.JobName)
