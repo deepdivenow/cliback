@@ -2,6 +2,7 @@ package transport
 
 import (
 	"bytes"
+	"cliback/config"
 	"path"
 )
 
@@ -17,12 +18,18 @@ type CliFile struct {
 	BSize uint64
 	Name string
 	Path string
+	Reference string
 	RunJobType RunJobType
 	TryRetry bool
 	Sha1 string
 }
+
 func (cf *CliFile) Archive() (string)  {
-	return path.Join(cf.Path,cf.Name+".gz")
+	c:=config.New()
+	if len (cf.Reference) > 0 {
+		return path.Join(cf.Reference,cf.Path,cf.Name+".gz")
+	}
+	return path.Join(c.TaskArgs.JobName,cf.Path,cf.Name+".gz")
 }
 func (cf *CliFile) RestoreDest() (string)  {
 	return path.Join(cf.Path,"detached",cf.Name)
@@ -37,9 +44,11 @@ type MetaFile struct {
 }
 
 func (mf *MetaFile) Archive() (string)  {
-	return path.Join(mf.Path,mf.Name+".gz")
+	c:=config.New()
+	return path.Join(c.TaskArgs.JobName,mf.Path,mf.Name+".gz")
 }
 
-func (mf *MetaFile) FPath() (string)  {
-	return path.Join(mf.Path,mf.Name)
+func (mf *MetaFile) SPath() (string)  {
+	c:=config.New()
+	return path.Join(c.TaskArgs.JobName,mf.Path,mf.Name)
 }

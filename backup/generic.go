@@ -11,6 +11,7 @@ type file_info struct {
 	Size uint64       `json:"size"`
 	BSize uint64      `json:"bsize"`
 	Sha1  string      `json:"sha1"`
+	Reference string  `json:"reference"`
 }
 type table_info struct {
 	Size uint64       `json:"size"`

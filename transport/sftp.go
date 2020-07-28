@@ -58,7 +58,8 @@ func MakeRestoreTransportSFTP(file CliFile) (*transport,error) {
 		return t,err
 	}
 	t.Closer = append(t.Closer, sp.MakeReleaseCloser(sftp_cli))
-	source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName,file.Archive()))
+	source_file:=path.Join(c.BackupStorage.BackupDir,file.Archive())
+	source,err := sftp_cli.Open(source_file)
 	if err != nil {
 		return t,err
 	}
@@ -121,11 +122,11 @@ func ReadMetaSFTP(mf MetaFile) (MetaFile,error){
 	}
 	defer sp.ReleaseClient(sftp_cli)
 	var compressed bool
-	_,err=sftp_cli.Stat(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName,mf.Archive()))
+	_,err=sftp_cli.Stat(path.Join(c.BackupStorage.BackupDir,mf.Archive()))
 	if err == nil {
 		compressed=true
 	}else{
-		_, err = sftp_cli.Stat(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName, mf.FPath()))
+		_, err = sftp_cli.Stat(path.Join(c.BackupStorage.BackupDir,mf.SPath()))
 		if err != nil {
 			if c.TaskArgs.Debug {
 				log.Println(err)
@@ -134,7 +135,7 @@ func ReadMetaSFTP(mf MetaFile) (MetaFile,error){
 		}
 	}
 	if (compressed) {
-		source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName,mf.Archive()))
+		source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,mf.Archive()))
 		if err != nil {
 			log.Println(err)
 			return mf,err
@@ -154,7 +155,7 @@ func ReadMetaSFTP(mf MetaFile) (MetaFile,error){
 		mf.Sha1 = hex.EncodeToString(sha1sum.Sum(nil))
 		return mf,nil
 	} else {
-		source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,c.TaskArgs.JobName,mf.FPath()))
+		source,err := sftp_cli.Open(path.Join(c.BackupStorage.BackupDir,mf.SPath()))
 		if err != nil {
 			log.Println(err)
 			return mf,err
@@ -162,6 +163,7 @@ func ReadMetaSFTP(mf MetaFile) (MetaFile,error){
 		defer source.Close()
 		mwr := io.MultiWriter(sha1sum, dest)
 		_,err=io.Copy(mwr,source)
+		dest.Flush()
 		if err != nil {
 			return mf,err
 		}

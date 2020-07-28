@@ -29,6 +29,7 @@ func GetMetaForRestore() (*backup_info,error){
 		if !Contains(metas,c.TaskArgs.JobName){
 			return bi,errors.New("Job #{c.TaskArgs.JobName} not exists for restore")
 		}
+		return BackupRead(backup_name)
 	} else {
 		log.Printf("Start Restore job: `Last`")
 		for i := len(metas)-1; i >= 0; i-- {
@@ -72,6 +73,12 @@ func Restorev1(bi *backup_info) error{
 	for db,db_info := range(bi.DBS) {
 		ch.CreateDatabase(db)
 		for table, table_info := range (db_info.Tables) {
+			if len(table_info.DbDir) < 1{
+				table_info.DbDir=db
+			}
+			if len(table_info.TableDir) < 1{
+				table_info.TableDir=table
+			}
 			mi := bi.DBS[db].MetaData[table]
 			mf:=transport.MetaFile{
 				Name:     table_info.TableDir+".sql",
@@ -147,6 +154,9 @@ func RestoreFiles(ti *table_info,jobs_chan chan<- workerpool.TaskElem) {
 			RunJobType: transport.Restore,
 			TryRetry:   false,
 			Sha1: f_info.Sha1,
+			Size: f_info.Size,
+			BSize: f_info.BSize,
+			Reference: f_info.Reference,
 		}
 		log.Printf("Restore archive: %s to %s",cliF.Archive(),cliF.RestoreDest())
 		jobs_chan <- cliF
