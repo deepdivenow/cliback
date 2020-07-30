@@ -14,11 +14,12 @@ const (
 )
 
 type CliFile struct {
-	Size uint64
-	BSize uint64
-	Name string
-	Path string
+	Size  int64
+	BSize int64
+	Name  string
+	Path  string
 	Reference string
+	Shadow string
 	RunJobType RunJobType
 	TryRetry bool
 	Sha1 string
@@ -34,8 +35,16 @@ func (cf *CliFile) Archive() (string)  {
 func (cf *CliFile) RestoreDest() (string)  {
 	return path.Join(cf.Path,"detached",cf.Name)
 }
+func (cf *CliFile) BackupSrc() (string)  {
+	return path.Join(cf.Shadow,cf.Path,cf.Name)
+}
+func (cf *CliFile) BackupSrcShort() (string)  {
+	return path.Join(cf.Path,cf.Name)
+}
 
 type MetaFile struct {
+	Size  int64
+	BSize int64
 	Name string
 	Path string
 	TryRetry bool

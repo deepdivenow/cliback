@@ -86,18 +86,18 @@ func Restorev1(bi *backup_info) error{
 				TryRetry: false,
 				Sha1:     mi.Sha1,
 			}
-			meta,err:=transport.ReadMeta(mf)
+			err:=transport.ReadMeta(&mf)
 			if err != nil{
 				log.Println(err)
 			}
-			if mi.Sha1 != meta.Sha1{
-				log.Printf("Backaup Info SHA1: %s not eq Restored file SHA1: %s",mi.Sha1,meta.Sha1)
+			if mi.Sha1 != mf.Sha1{
+				log.Printf("Backup Info SHA1: %s not eq Restored file SHA1: %s",mi.Sha1,mf.Sha1)
 			}
-			err=ch.CreateTable(db,table,meta.Content.String())
+			err=ch.CreateTable(db,table,mf.Content.String())
 			if err != nil{
 				log.Println(err)
 			}
-			err=restore_table(&table_info)
+			err= restoreTable(&table_info)
 			if err != nil{
 				log.Println(err)
 			}
@@ -132,7 +132,7 @@ func get_restore_objects() (map[string][]string,error) {
 	return restore_objects, nil
 }
 
-func restore_table(ti *table_info) (error) {
+func restoreTable(ti *table_info) (error) {
 	var wp_task workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
 		return RestoreRun(field)
@@ -201,7 +201,7 @@ func BackupRead(backup_name string) (*backup_info,error) {
 		TryRetry: false,
 		Sha1:     "",
 	}
-	mf,err:=transport.ReadMeta(mf)
+	err:=transport.ReadMeta(&mf)
 	if err != nil{
 		if c.TaskArgs.Debug {
 			log.Println("Error read metafile ", mf.Path)

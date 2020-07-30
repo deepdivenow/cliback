@@ -5,19 +5,48 @@ import (
 	"errors"
 	"hash"
 	"io"
+	"os"
 )
 
-type transport struct{
-	Reader io.Reader
-	Writer io.Writer
-	Sha1Sum hash.Hash
+type transport_closer struct {
 	Closer []io.Closer
+}
+func (t *transport_closer) Close() error{
+	for i := len(t.Closer)-1; i >= 0; i-- {
+		t.Closer[i].Close()
+	}
+	return nil
+}
+
+type Stater interface {
+	Stat() (os.FileInfo, error)
+}
+type Flusher interface {
+	Flush() error
+}
+
+type transport struct{
+	Size    int64
+	BSize   int64
+	Reader  io.Reader
+	Writer  io.Writer
+	Sha1Sum hash.Hash
+	Closer  []io.Closer
+	Stater  [2]Stater
+	Flusher []Flusher
 	Ready bool
 }
 
+func (t *transport) Flush() error{
+	for _,f:=range (t.Flusher){
+		f.Flush()
+	}
+	return nil
+}
+
 func (t *transport) Close() error{
-	for _,h := range t.Closer{
-		h.Close()
+	for i := len(t.Closer)-1; i >= 0; i-- {
+		t.Closer[i].Close()
 	}
 	return nil
 }
@@ -30,7 +59,20 @@ func (t *transport) Cleanup() error{
 }
 
 func (t *transport) Copy() (int64,error){
-	return io.Copy(t.Writer,t.Reader)
+	num,err:=io.Copy(t.Writer,t.Reader)
+	if err != nil {
+		return num,err
+	}
+	t.Flush()
+	s,serr := t.Stater[0].Stat()
+	if err == nil{
+		t.Size=s.Size()
+	}
+	d,err := t.Stater[1].Stat()
+	if serr == nil{
+		t.BSize=d.Size()
+	}
+	return num,err
 }
 
 func MakeTransport(file CliFile) (*transport,error){
@@ -58,7 +100,7 @@ func MakeTransport(file CliFile) (*transport,error){
 	return nil,errors.New("Transport not created")
 }
 
-func ReadMeta(mf MetaFile) (MetaFile,error){
+func ReadMeta(mf *MetaFile) (error){
 	c := config.New()
 	switch c.BackupStorage.Type {
 	case "local":
@@ -66,11 +108,11 @@ func ReadMeta(mf MetaFile) (MetaFile,error){
 	case "sftp":
 		return ReadMetaSFTP(mf)
 	default:
-		return mf,errors.New("Meta Read bad transport type")
+		return errors.New("Meta Read bad transport type")
 	}
 }
 
-func WriteMeta(mf MetaFile) (error){
+func WriteMeta(mf *MetaFile) (error){
 	c := config.New()
 	switch c.BackupStorage.Type {
 	case "local":
