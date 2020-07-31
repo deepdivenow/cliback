@@ -6,12 +6,14 @@ import (
 	"cliback/transport"
 	"cliback/workerpool"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 func FindFiles(dir_for_backup string, jobs_chan chan<- workerpool.TaskElem) {
@@ -23,13 +25,18 @@ func FindFiles(dir_for_backup string, jobs_chan chan<- workerpool.TaskElem) {
 			if info.IsDir() {
 				return nil
 			}
-			cPath := path[len(dir_for_backup):]
+			cPath,err := SplitShadow(path)
+			if err != nil{
+				return nil
+			}
 			cliF := transport.CliFile{
-				Name:       cPath,
-				Path:       cPath,
+				Name:       cPath[2],
+				Path:       cPath[1],
+				Shadow: 	cPath[0],
 				RunJobType: transport.Backup,
 				TryRetry:   false,
 			}
+			log.Printf("Backup  From %s Archive: %s",cliF.BackupSrcShort(),cliF.Archive())
 			jobs_chan <- cliF
 			return nil
 		})
@@ -39,7 +46,37 @@ func FindFiles(dir_for_backup string, jobs_chan chan<- workerpool.TaskElem) {
 	close(jobs_chan)
 }
 
+func CheckForReference(cf transport.CliFile) (transport.CliFile){
+	pbs:=GetPreviousBackups()
+	c:=config.New()
+	for _,pb := range(pbs.backaupInfos){
+		cfOld := pb.DBS[c.TaskArgs.DBNow].Tables[c.TaskArgs.TableNow].Files[cf.Name]
+		if len(cfOld.Reference) > 0 {
+			continue
+		}
+		if cfOld.Sha1 == cf.Sha1{
+			cf.Reference = pb.Name
+			cf.Size = cfOld.Size
+			cf.BSize = cfOld.BSize
+			return cf
+		}
+	}
+	return cf
+}
+/// This Job Running in Worker Pool
 func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
+	c:=config.New()
+	if c.TaskArgs.BackupType == "diff" ||
+	   c.TaskArgs.BackupType == "incr" {
+		err:=cf.Sha1Compute()
+		if err!=nil{
+			return cf,err
+		}
+		cf=CheckForReference(cf)
+		if len(cf.Reference) > 0{
+			return cf,nil
+		}
+	}
 	tr, err := transport.MakeTransport(cf)
 	if err != nil {
 		return transport.CliFile{}, err
@@ -51,6 +88,8 @@ func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
 		return transport.CliFile{}, err
 	}
 	cf.Sha1 = hex.EncodeToString(tr.Sha1Sum.Sum(nil))
+	cf.Size = tr.Size
+	cf.BSize = tr.BSize
 	return cf, nil
 }
 
@@ -59,7 +98,7 @@ func Backup() error{
 	c:=config.New()
 	ch:=database.New()
 	ch.SetDSN(c.ClickhouseBackupConn)
-	backup_objects,err:=get_backup_objects()
+	backup_objects,err:= getBackupObjects()
 	if err != nil{
 		return err
 	}
@@ -76,19 +115,56 @@ func Backup() error{
 		StartDate: GetFormatedTime(),
 		DBS: make(map[string]database_info),
 	}
+	if c.TaskArgs.BackupType == "diff" ||
+	   c.TaskArgs.BackupType == "incr" {
+		pbs:=GetPreviousBackups()
+		pbs.Search(c.TaskArgs.BackupType)
+		print(len(pbs.backaupInfos))
+	}
 	for db,tables := range(backup_objects){
+		c.TaskArgs.DBNow=db
 		di:=database_info{
 			Tables:    make(map[string]table_info),
 			MetaData:  nil,
 		}
 		for _,table := range(tables){
 			log.Printf("%s/%s",db,table)
-			ti,_:=backupTable(db,table,"")
+			c.TaskArgs.TableNow=table
+			var ti table_info
+			if c.TaskArgs.BackupType=="part" {
+				ti, _ = backupTable(db, table, c.TaskArgs.JobPartition)
+			} else {
+				ti, _ = backupTable(db, table, "")
+			}
 			di.Tables[table]=ti
+			di.Add(&ti)
 		}
 		bi.DBS[db]=di
+		bi.Add(&di)
+		bi.StopDate=GetFormatedTime()
+		BackupInfoWrite(&bi)
 	}
 	return nil
+}
+
+func backupMeta(db,table,fdb,ftable string) (transport.MetaFile,error){
+	//mi := bi.DBS[db].MetaData[table]
+	c:=config.New()
+	ch:=database.New()
+	mf:=transport.MetaFile{
+		Name:     ftable+".sql",
+		Path:     fdb,
+		JobName:  c.TaskArgs.JobName,
+		TryRetry: false,
+	}
+
+	meta,err:=ch.ShowCreateTable(db,table)
+	if err != nil{
+		return mf,err
+	}
+	mf.Content.WriteString(meta)
+	err=transport.WriteMeta(&mf)
+	return mf,err
 }
 
 func backupTable(db,table,part string)(table_info,error)  {
@@ -103,64 +179,60 @@ func backupTable(db,table,part string)(table_info,error)  {
 		return table_info{BackupStatus: "bad"}, err
 	}
 	ti:=table_info{
-		Size:       0,
-		BSize:      0,
-		RepoSize:   0,
-		RepoBSize:  0,
 		DbDir:      r[0],
 		TableDir:   r[1],
 		Partitions: parts,
-		//Dirs:       nil,
 		Files:      map[string]file_info{},
 		BackupStatus: "bad",
+	}
+	mf,err:=backupMeta(db,table,ti.DbDir,ti.TableDir)
+	if err == nil{
+		ti.MetaData.Sha1=mf.Sha1
+		ti.MetaData.Size=mf.Size
+		ti.MetaData.BSize=mf.BSize
 	}
 	err=ch.FreezeTable(db,table,part)
 	if err != nil{
 		return table_info{BackupStatus: "bad"}, err
 	}
+	time.Sleep(time.Second*5) /// Clickhouse after freeze need some time
 	shDir,err:=ch.GetIncrement()
 	if err != nil{
 		return table_info{BackupStatus: "bad"}, err
 	}
 	c.ShadowDir=path.Join(c.ClickhouseDir,"shadow",strconv.Itoa(shDir))
+	defer os.RemoveAll(c.ShadowDir)
+	ti.Dirs,_=GetDirs(path.Join(c.ShadowDir,"data",ti.DbDir,ti.TableDir))
 	var wp_task workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
 		return BackupRun(field)
 	}
 
-	wp := workerpool.MakeWorkerPool(wp_task, 4, 3, 10)
+	wp := workerpool.MakeWorkerPool(wp_task, 3, 3, 10)
 	wp.Start()
 	go FindFiles(c.ShadowDir, wp.Get_Jobs_Chan())
 
 	for job := range wp.Get_Results_Chan() {
 		j, _ := job.(transport.CliFile)
-		ti.Files[j.Name]=file_info{
-			Size:  j.Size,
-			BSize: j.BSize,
-			Sha1:  j.Sha1,
-		}
-		ti.Size+=j.Size
-		ti.BSize+=j.BSize
+		ti.AddJob(&j)
 	}
+	ti.BackupStatus="OK"
 	return ti,nil
 }
 
-func get_backup_objects() (map[string][]string,error) {
+func getBackupObjects() (map[string][]string,error) {
 	backup_objects:=map[string][]string{}
 	c:=config.New()
 	backup_filter:=c.BackupFilter
-	//var backup_filter map[string][]string
-	//if c.BackupFilter == nil{
-	//	backup_filter=make(map[string][]string)
-	//} else {
-	//	backup_filter=c.BackupFilter
-	//}
 	ch:=database.New()
 	C_DBS,err := ch.GetDBS()
 	if err != nil {
 		return nil, err
 	}
 	for _,db := range C_DBS{
+		if db == "system" {
+			continue
+		}
 		C_Tables,err:=ch.GetTables(db)
 		if err != nil {
 			return nil, err
@@ -178,41 +250,46 @@ func get_backup_objects() (map[string][]string,error) {
 			}
 		}
 	}
+	if c.TaskArgs.BackupType == "part"{
+		if len(backup_filter) != 1 {
+			return backup_filter,errors.New("Bad backup filter for parted mode, set only one db.table")
+		}
+		for _,tables := range(backup_filter){
+			if len(tables) != 1 {
+				return backup_filter,errors.New("Bad backup filter for parted mode, set only one db.table")
+			}
+		}
+	}
 	return backup_filter, nil
 }
 
-func Backup_OLD() {
+func BackupInfoWrite(bi *backup_info) (error) {
 	c := config.New()
-	c.Read("/home/dro/go-1.13/src/cliback/clickhouse_backup.yaml")
-	c.SetShadow("/home/dro/.thunderbird")
-	//sp:=sftp_pool.New()
-	//Move to backup/restore function
-	//sp.SetSSHConfig(map[string]string{
-	//	"user": c.BackupStorage.BackupConn.UserName,
-	//	"pass": c.BackupStorage.BackupConn.Password,
-	//	"remote": c.BackupStorage.BackupConn.HostName,
-	//	"port": ":"+strconv.Itoa(int(c.BackupStorage.BackupConn.Port)),
-	//	"public_key": c.BackupStorage.BackupConn.KeyFilename,
-	//})
-	///
-
-	var wp_task workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
-		field, _ := i.(transport.CliFile)
-		return BackupRun(field)
+	byte, err := json.MarshalIndent(bi, "", "  ")
+	if err != nil {
+		if c.TaskArgs.Debug {
+			log.Println("Marshal: %v", err)
+		}
+		return err
 	}
-
-	wp := workerpool.MakeWorkerPool(wp_task, 4, 3, 10)
-	wp.Start()
-	go FindFiles(c.ShadowDir, wp.Get_Jobs_Chan())
-	for job := range wp.Get_Results_Chan() {
-		j, _ := job.(transport.CliFile)
-		println(j.Name, j.Sha1)
+	mf := transport.MetaFile{
+		Name:     "backup.json",
+		Path:     "",
+		JobName:  c.TaskArgs.JobName,
+		TryRetry: false,
+		Sha1:     "",
 	}
+	for _,s := range ([]string{".copy",""}) {
+		for {
+			mf.Content.Write(byte)
+			mf.Name = "backup.json" + s
+			err = transport.WriteMeta(&mf)
+			if err != nil {
+				log.Println("Error write metafile ", mf.Path)
+				continue
+			}
+			break
+		}
+	}
+	return nil
 }
-
-//config_map  := map[string]string{
-//"user": "dro",
-//"pass": "dctulfq1",
-//"remote": "stich",
-//"port": ":22",
-//}

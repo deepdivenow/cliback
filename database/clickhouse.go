@@ -260,6 +260,7 @@ func (ch *ChDb) CreateDatabase(db string) (error) {
 	return err
 }
 func ReplaceAttachToCreateTable(db,table,meta string) (string){
+	meta=strings.Replace(meta, "CREATE TABLE ","CREATE TABLE IF NOT EXISTS ",1)
 	meta=strings.Replace(meta, fmt.Sprintf("ATTACH TABLE %s",table),fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s`",db,table),1)
 	meta=strings.Replace(meta, fmt.Sprintf("ATTACH TABLE `%s`",table),fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s`",db,table),1)
 	return meta
@@ -293,6 +294,26 @@ func (ch *ChDb) CreateTable(db,table,meta string) (error) {
 	log.Printf("Create Table:\n%s",meta)
 	_,err:=ch.Execute(meta)
 	return err
+}
+func (ch *ChDb) ShowCreateTable(db,table string) (string,error) {
+	query:=fmt.Sprintf("SHOW CREATE TABLE `%s`.`%s`",db,table)
+	log.Printf("SHOW CREATE TABLE %s.%s",db,table)
+	var result []string
+	rows,err:=ch.Query(query)
+	if err != nil {
+		return "",err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var parttition string
+		if err:=rows.Scan(&parttition); err == nil{
+			result=append(result, parttition)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return "",err
+	}
+	return result[0],nil
 }
 func isInteregerPart(part string) (bool) {
 	re_match, _ := regexp.MatchString("^\\d+$", part)

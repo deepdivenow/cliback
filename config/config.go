@@ -36,6 +36,8 @@ type taskargs struct {
 	JobPartition string
 	BackupType string
 	Debug bool
+	DBNow string
+	TableNow string
 }
 
 type ChMetaOpts struct {
