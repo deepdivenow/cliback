@@ -9,8 +9,8 @@ func(bi *backup_info) String() string{
 	var outStr string
 	outStr+=fmt.Sprintf("%s backup: %s\n", bi.Type,bi.Name)
 	outStr+=fmt.Sprintf("\ttimestamp start/stop: %s / %s\n", bi.StartDate,bi.StopDate)
-	outStr+=fmt.Sprintf("\tdb size: %d backup size: %d\n", bi.Size, bi.RepoSize)
-	outStr+=fmt.Sprintf("\trepo size: %d repo backup size: %d\n", bi.BSize, bi.RepoBSize)
+	outStr+=fmt.Sprintf("\tdb size: %d backup size: %d\n", bi.Size, bi.BSize)
+	outStr+=fmt.Sprintf("\trepo size: %d repo backup size: %d\n", bi.RepoSize, bi.RepoBSize)
 	if bi.Type == "diff" || bi.Type == "incr"{
 		outStr+=fmt.Sprintf("\treference: %s\n", bi.Reference)
 	}

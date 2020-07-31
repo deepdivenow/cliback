@@ -57,8 +57,8 @@ func main() {
 	flag.StringVar(&cargs.jobId,"j","","JobId for restore (shotland)")
 	flag.StringVar(&cargs.backupType,"backup-type","","Backup type (default: full)")
 	flag.StringVar(&cargs.backupType,"t","","Backup type (default: full) (shotland)")
-	flag.StringVar(&cargs.jobId,"partid","","PartId for backup OR restore ")
-	flag.StringVar(&cargs.jobId,"p","","PartId for backup OR restore (shotland)")
+	flag.StringVar(&cargs.partId,"partid","","PartId for backup OR restore ")
+	flag.StringVar(&cargs.partId,"p","","PartId for backup OR restore (shotland)")
 	flag.Parse()
 
 	err := cargs.parse_mode()

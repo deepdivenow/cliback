@@ -260,6 +260,7 @@ func (ch *ChDb) CreateDatabase(db string) (error) {
 	return err
 }
 func ReplaceAttachToCreateTable(db,table,meta string) (string){
+	meta=strings.Replace(meta, "CREATE TABLE ","CREATE TABLE IF NOT EXISTS ",1)
 	meta=strings.Replace(meta, fmt.Sprintf("ATTACH TABLE %s",table),fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s`",db,table),1)
 	meta=strings.Replace(meta, fmt.Sprintf("ATTACH TABLE `%s`",table),fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s`",db,table),1)
 	return meta
@@ -296,7 +297,7 @@ func (ch *ChDb) CreateTable(db,table,meta string) (error) {
 }
 func (ch *ChDb) ShowCreateTable(db,table string) (string,error) {
 	query:=fmt.Sprintf("SHOW CREATE TABLE `%s`.`%s`",db,table)
-	log.Printf("SHOW CREATE TABLE %s,%s",db,table)
+	log.Printf("SHOW CREATE TABLE %s.%s",db,table)
 	var result []string
 	rows,err:=ch.Query(query)
 	if err != nil {

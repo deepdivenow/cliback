@@ -70,6 +70,7 @@ func Restore() error{
 
 func Restorev1(bi *backup_info) error{
 	ch:=database.New()
+	c:=config.New()
 	for db,db_info := range(bi.DBS) {
 		ch.CreateDatabase(db)
 		for table, table_info := range (db_info.Tables) {
@@ -83,6 +84,7 @@ func Restorev1(bi *backup_info) error{
 			mf:=transport.MetaFile{
 				Name:     table_info.TableDir+".sql",
 				Path:     table_info.DbDir,
+				JobName:  c.TaskArgs.JobName,
 				TryRetry: false,
 				Sha1:     mi.Sha1,
 			}
@@ -198,6 +200,7 @@ func BackupRead(backup_name string) (*backup_info,error) {
 	mf := transport.MetaFile{
 		Name:     "backup.json",
 		Path:     "",
+		JobName:  backup_name,
 		TryRetry: false,
 		Sha1:     "",
 	}

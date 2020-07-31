@@ -13,21 +13,8 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 )
-
-func SplitShadow(p string)([]string, error){
-	dirs:=strings.Split(p,"/")
-	pos,err:=Position(dirs,"data")
-	if err != nil {
-		return nil, err
-	}
-	result_shadow:=strings.Join(dirs[0:pos+1],"/")
-	result_path:=strings.Join(dirs[pos+1:pos+3],"/")
-	result_file:=strings.Join(dirs[pos+3:],"/")
-	return []string{result_shadow,result_path,result_file},nil
-}
 
 func FindFiles(dir_for_backup string, jobs_chan chan<- workerpool.TaskElem) {
 	err := filepath.Walk(dir_for_backup,
@@ -59,7 +46,37 @@ func FindFiles(dir_for_backup string, jobs_chan chan<- workerpool.TaskElem) {
 	close(jobs_chan)
 }
 
+func CheckForReference(cf transport.CliFile) (transport.CliFile){
+	pbs:=GetPreviousBackups()
+	c:=config.New()
+	for _,pb := range(pbs.backaupInfos){
+		cfOld := pb.DBS[c.TaskArgs.DBNow].Tables[c.TaskArgs.TableNow].Files[cf.Name]
+		if len(cfOld.Reference) > 0 {
+			continue
+		}
+		if cfOld.Sha1 == cf.Sha1{
+			cf.Reference = pb.Name
+			cf.Size = cfOld.Size
+			cf.BSize = cfOld.BSize
+			return cf
+		}
+	}
+	return cf
+}
+/// This Job Running in Worker Pool
 func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
+	c:=config.New()
+	if c.TaskArgs.BackupType == "diff" ||
+	   c.TaskArgs.BackupType == "incr" {
+		err:=cf.Sha1Compute()
+		if err!=nil{
+			return cf,err
+		}
+		cf=CheckForReference(cf)
+		if len(cf.Reference) > 0{
+			return cf,nil
+		}
+	}
 	tr, err := transport.MakeTransport(cf)
 	if err != nil {
 		return transport.CliFile{}, err
@@ -98,33 +115,46 @@ func Backup() error{
 		StartDate: GetFormatedTime(),
 		DBS: make(map[string]database_info),
 	}
+	if c.TaskArgs.BackupType == "diff" ||
+	   c.TaskArgs.BackupType == "incr" {
+		pbs:=GetPreviousBackups()
+		pbs.Search(c.TaskArgs.BackupType)
+		print(len(pbs.backaupInfos))
+	}
 	for db,tables := range(backup_objects){
+		c.TaskArgs.DBNow=db
 		di:=database_info{
 			Tables:    make(map[string]table_info),
 			MetaData:  nil,
 		}
 		for _,table := range(tables){
 			log.Printf("%s/%s",db,table)
-			ti,_:=backupTable(db,table,"")
+			c.TaskArgs.TableNow=table
+			var ti table_info
+			if c.TaskArgs.BackupType=="part" {
+				ti, _ = backupTable(db, table, c.TaskArgs.JobPartition)
+			} else {
+				ti, _ = backupTable(db, table, "")
+			}
 			di.Tables[table]=ti
-			di.Size+=ti.Size
-			di.BSize+=ti.BSize
+			di.Add(&ti)
 		}
 		bi.DBS[db]=di
-		bi.Size+=di.Size
-		bi.BSize+=di.BSize
+		bi.Add(&di)
 		bi.StopDate=GetFormatedTime()
-		BackupWrite(&bi)
+		BackupInfoWrite(&bi)
 	}
 	return nil
 }
 
 func backupMeta(db,table,fdb,ftable string) (transport.MetaFile,error){
 	//mi := bi.DBS[db].MetaData[table]
+	c:=config.New()
 	ch:=database.New()
 	mf:=transport.MetaFile{
 		Name:     ftable+".sql",
 		Path:     fdb,
+		JobName:  c.TaskArgs.JobName,
 		TryRetry: false,
 	}
 
@@ -149,14 +179,9 @@ func backupTable(db,table,part string)(table_info,error)  {
 		return table_info{BackupStatus: "bad"}, err
 	}
 	ti:=table_info{
-		Size:       0,
-		BSize:      0,
-		RepoSize:   0,
-		RepoBSize:  0,
 		DbDir:      r[0],
 		TableDir:   r[1],
 		Partitions: parts,
-		//Dirs:       nil,
 		Files:      map[string]file_info{},
 		BackupStatus: "bad",
 	}
@@ -189,13 +214,7 @@ func backupTable(db,table,part string)(table_info,error)  {
 
 	for job := range wp.Get_Results_Chan() {
 		j, _ := job.(transport.CliFile)
-		ti.Files[j.Name]=file_info{
-			Size:  j.Size,
-			BSize: j.BSize,
-			Sha1:  j.Sha1,
-		}
-		ti.Size+=j.Size
-		ti.BSize+=j.BSize
+		ti.AddJob(&j)
 	}
 	ti.BackupStatus="OK"
 	return ti,nil
@@ -211,6 +230,9 @@ func getBackupObjects() (map[string][]string,error) {
 		return nil, err
 	}
 	for _,db := range C_DBS{
+		if db == "system" {
+			continue
+		}
 		C_Tables,err:=ch.GetTables(db)
 		if err != nil {
 			return nil, err
@@ -228,10 +250,20 @@ func getBackupObjects() (map[string][]string,error) {
 			}
 		}
 	}
+	if c.TaskArgs.BackupType == "part"{
+		if len(backup_filter) != 1 {
+			return backup_filter,errors.New("Bad backup filter for parted mode, set only one db.table")
+		}
+		for _,tables := range(backup_filter){
+			if len(tables) != 1 {
+				return backup_filter,errors.New("Bad backup filter for parted mode, set only one db.table")
+			}
+		}
+	}
 	return backup_filter, nil
 }
 
-func BackupWrite(bi *backup_info) (error) {
+func BackupInfoWrite(bi *backup_info) (error) {
 	c := config.New()
 	byte, err := json.MarshalIndent(bi, "", "  ")
 	if err != nil {
@@ -243,12 +275,13 @@ func BackupWrite(bi *backup_info) (error) {
 	mf := transport.MetaFile{
 		Name:     "backup.json",
 		Path:     "",
+		JobName:  c.TaskArgs.JobName,
 		TryRetry: false,
 		Sha1:     "",
 	}
-	mf.Content.Write(byte)
 	for _,s := range ([]string{".copy",""}) {
 		for {
+			mf.Content.Write(byte)
 			mf.Name = "backup.json" + s
 			err = transport.WriteMeta(&mf)
 			if err != nil {

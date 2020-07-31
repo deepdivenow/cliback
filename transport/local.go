@@ -32,7 +32,7 @@ func MakeBackupTransportLocal(file CliFile) (*transport,error) {
 		return nil, err
 	}
 	t.Closer = append(t.Closer, dest)
-	source,err := os.Open(path.Join(c.ShadowDir,file.Path))
+	source,err := os.Open(path.Join(file.BackupSrc()))
 	if err != nil {
 		return nil, err
 	}
