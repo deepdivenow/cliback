@@ -223,6 +223,25 @@ func (ch *ChDb) GetFNames(db,table,part string) ([2]string, error) {
 	length:=len(dirs)
 	return [2]string{dirs[length-3],dirs[length-2]},nil
 }
+func (ch *ChDb) GetDisks() (map[string]string, error) {
+	result:=map[string]string{}
+	query:="SELECT name,path FROM system.disks"
+	rows,err:=ch.Query(query)
+	if err != nil {
+		return nil,err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var disk,path string
+		if err:=rows.Scan(&disk,&path); err == nil{
+			result[disk]=path
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil,err
+	}
+	return result,nil
+}
 func (ch *ChDb) FreezeTable(db,table,part string) error {
 	var query string
 	if part=="" {

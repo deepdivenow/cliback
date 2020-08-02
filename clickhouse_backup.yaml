@@ -16,4 +16,4 @@ clickhouse_restore_opts:
   replace_replicated_to_default: True
 backup_filter:
   default:
-    - ontime
+    - ontime2
