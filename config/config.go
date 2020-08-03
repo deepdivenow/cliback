@@ -11,11 +11,11 @@ import (
 )
 
 type Connection struct {
-	HostName string  `yaml:"hostname"`
-	UserName string  `yaml:"username,omitempty"`
-	Password string  `yaml:"password,omitempty"`
-	Port     uint16  `yaml:"port,omitempty"`
-	KeyFilename string  `yaml:"key_filename,omitempty"`
+	HostName    string `yaml:"hostname"`
+	UserName    string `yaml:"username,omitempty"`
+	Password    string `yaml:"password,omitempty"`
+	Port        uint16 `yaml:"port,omitempty"`
+	KeyFilename string `yaml:"key_filename,omitempty"`
 }
 
 type backupStorage struct {
@@ -33,13 +33,13 @@ const (
 )
 
 type taskargs struct {
-	JobType	   RunJobType
-	JobName    string
+	JobType      RunJobType
+	JobName      string
 	JobPartition string
-	BackupType string
-	Debug bool
-	DBNow string
-	TableNow string
+	BackupType   string
+	Debug        bool
+	DBNow        string
+	TableNow     string
 }
 
 type ChMetaOpts struct {
@@ -53,12 +53,12 @@ type config struct {
 	ClickhouseBackupConn  Connection          `yaml:"clickhouse_backup_conn"`
 	ClickhouseRestoreConn Connection          `yaml:"clickhouse_restore_conn"`
 	ClickhouseRestoreOpts ChMetaOpts          `yaml:"clickhouse_restore_opts"`
-	ClickhouseStorage     map[string]string `yaml:"clickhouse_storage"`
+	ClickhouseStorage     map[string]string   `yaml:"clickhouse_storage"`
 	BackupFilter          map[string][]string `yaml:"backup_filter"`
 }
 
 var (
-	once sync.Once
+	once     sync.Once
 	instance *config
 )
 
@@ -69,7 +69,7 @@ func New() *config {
 	return instance
 }
 
-func (c *config) Read(filename string) error  {
+func (c *config) Read(filename string) error {
 	yamlFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
@@ -88,5 +88,5 @@ func (c *config) Print() {
 }
 
 func (c *config) GetShadow(storageName string) string {
-	return path.Join(c.ClickhouseStorage[storageName],"shadow",strconv.Itoa(c.ShadowDirIncr))
+	return path.Join(c.ClickhouseStorage[storageName], "shadow", strconv.Itoa(c.ShadowDirIncr))
 }

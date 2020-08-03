@@ -12,28 +12,26 @@ import (
 	"strings"
 )
 
-func MakeSshClientConfig(c map[string]string) (ssh.ClientConfig){
+func MakeSshClientConfig(c map[string]string) ssh.ClientConfig {
 	var ssh_auth []ssh.AuthMethod
 	if pass, ok := c["pass"]; ok {
-		ssh_auth=append(ssh_auth, ssh.Password(pass))
+		ssh_auth = append(ssh_auth, ssh.Password(pass))
 	}
 	var pkey_paths []string
 	if pkey_path, ok := c["public_key"]; ok {
-		pkey_paths=append(pkey_paths,pkey_path)
+		pkey_paths = append(pkey_paths, pkey_path)
 	}
-	pkey_paths=append(pkey_paths,"~/.ssh/id_rsa")
-	pkey_paths=append(pkey_paths,"~/.ssh/id_sda")
-	for _,pkey_path := range(pkey_paths){
-		if pkey, err := publicKey(pkey_path); err==nil {
-			ssh_auth=append(ssh_auth,pkey)
+	pkey_paths = append(pkey_paths, "~/.ssh/id_rsa")
+	pkey_paths = append(pkey_paths, "~/.ssh/id_sda")
+	for _, pkey_path := range pkey_paths {
+		if pkey, err := publicKey(pkey_path); err == nil {
+			ssh_auth = append(ssh_auth, pkey)
 		}
 	}
 
-
-
 	clientConfig := ssh.ClientConfig{
-		User: c["user"],
-		Auth: ssh_auth,
+		User:            c["user"],
+		Auth:            ssh_auth,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		//HostKeyCallback: ssh.FixedHostKey(hostKey),
 	}
@@ -42,41 +40,41 @@ func MakeSshClientConfig(c map[string]string) (ssh.ClientConfig){
 	return clientConfig
 }
 
-func publicKey(path string) (ssh.AuthMethod,error) {
+func publicKey(path string) (ssh.AuthMethod, error) {
 	key, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return ssh.PublicKeys(signer),nil
+	return ssh.PublicKeys(signer), nil
 }
 
-func MakeConnection(cmap map[string]string) (*ssh.Client,*sftp.Client,error){
+func MakeConnection(cmap map[string]string) (*ssh.Client, *sftp.Client, error) {
 
-	for _,key := range([]string{"user","remote","port"}){
-		if _,ok := cmap[key]; !ok{
-			return nil,nil,errors.New("Set all keys for ssh connection")
+	for _, key := range []string{"user", "remote", "port"} {
+		if _, ok := cmap[key]; !ok {
+			return nil, nil, errors.New("Set all keys for ssh connection")
 		}
 	}
 	// get host public key
 	//hostKey := getHostKey(remote)
-	config:=MakeSshClientConfig(cmap)
+	config := MakeSshClientConfig(cmap)
 
 	// connect
 	ssh_client, err := ssh.Dial("tcp", cmap["remote"]+":"+cmap["port"], &config)
 	if err != nil {
-		return nil,nil,err
+		return nil, nil, err
 	}
 	// create new SFTP client
 	sftp_client, err := sftp.NewClient(ssh_client)
 	if err != nil {
 		ssh_client.Close()
-		return nil,nil,err
+		return nil, nil, err
 	}
-	return ssh_client,sftp_client,nil
+	return ssh_client, sftp_client, nil
 	//defer client.Close()
 	//
 	//// create destination file

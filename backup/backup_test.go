@@ -11,32 +11,32 @@ import (
 	"testing"
 )
 
-func check_backup_type(bi *backup_info) error{
-	if len(bi.BackupFilter)<1{
+func check_backup_type(bi *backup_info) error {
+	if len(bi.BackupFilter) < 1 {
 		errors.New("BackupFilter not parsed")
 	}
-	if len(bi.Name)<1{
+	if len(bi.Name) < 1 {
 		errors.New("Name not parsed")
 	}
-	if len(bi.Type)<1{
+	if len(bi.Type) < 1 {
 		errors.New("Type not parsed")
 	}
-	if bi.BSize<1{
+	if bi.BSize < 1 {
 		errors.New("BSize not parsed")
 	}
-	if bi.Size<1{
+	if bi.Size < 1 {
 		errors.New("Size not parsed")
 	}
-	if bi.RepoSize<1{
+	if bi.RepoSize < 1 {
 		errors.New("RepoSize not parsed")
 	}
-	if bi.RepoBSize<1{
+	if bi.RepoBSize < 1 {
 		errors.New("RepoBSize not parsed")
 	}
 	return nil
 }
 
-func TestBackupRead(t *testing.T){
+func TestBackupRead(t *testing.T) {
 	bi := new(backup_info)
 	jFile, err := ioutil.ReadFile("test_backup_v1.json")
 	if err != nil {
@@ -47,15 +47,15 @@ func TestBackupRead(t *testing.T){
 		log.Fatalf("Unmarshal: %v", err)
 	}
 	err = check_backup_type(bi)
-	if err != nil{
+	if err != nil {
 		t.Error(err.Error())
 	}
 	return
 }
 
-func TestMetaTransportLocalRead(t *testing.T)  {
+func TestMetaTransportLocalRead(t *testing.T) {
 	c := config.New()
-	c.BackupStorage.BackupDir="/home/dro/go-1.13/src/cliback/backup"
+	c.BackupStorage.BackupDir = "/home/dro/go-1.13/src/cliback/backup"
 	bi := new(backup_info)
 	mf := transport.MetaFile{
 		Name:     "Test",
@@ -64,8 +64,8 @@ func TestMetaTransportLocalRead(t *testing.T)  {
 		Sha1:     "",
 		Content:  bytes.Buffer{},
 	}
-	mf,err:=transport.ReadMetaLocal(mf)
-	if err != nil{
+	mf, err := transport.ReadMetaLocal(mf)
+	if err != nil {
 		t.Error("Error read metafile")
 	}
 	err = json.Unmarshal(mf.Content.Bytes(), bi)
@@ -73,7 +73,7 @@ func TestMetaTransportLocalRead(t *testing.T)  {
 		t.Errorf("Unmarshal: %v", err)
 	}
 	err = check_backup_type(bi)
-	if err != nil{
+	if err != nil {
 		t.Error(err.Error())
 	}
 	return
