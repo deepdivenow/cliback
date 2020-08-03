@@ -17,8 +17,15 @@ import (
 func FindFiles(jobs_chan chan<- workerpool.TaskElem) {
 	c:=config.New()
 	for storage,_ := range(c.ClickhouseStorage) {
-		dir_for_backup:=c.GetShadow(storage)
-		err := filepath.Walk(dir_for_backup,
+		dirForBackup :=c.GetShadow(storage)
+		st,err:=os.Stat(dirForBackup)
+		if err != nil {
+			continue
+		}
+		if !st.IsDir() {
+			continue
+		}
+			err = filepath.Walk(dirForBackup,
 			func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
@@ -127,7 +134,7 @@ func Backup() error{
 	   c.TaskArgs.BackupType == "incr" {
 		pbs:=GetPreviousBackups()
 		pbs.Search(c.TaskArgs.BackupType)
-		print(len(pbs.backaupInfos))
+		log.Printf("Search delta by backups: %s",pbs.GetBackupNames())
 	}
 	for db,tables := range(backup_objects){
 		c.TaskArgs.DBNow=db
@@ -136,7 +143,7 @@ func Backup() error{
 			MetaData:  nil,
 		}
 		for _,table := range(tables){
-			log.Printf("%s/%s",db,table)
+			log.Printf("Backup table: %s/%s",db,table)
 			c.TaskArgs.TableNow=table
 			var ti table_info
 			if c.TaskArgs.BackupType=="part" {

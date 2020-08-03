@@ -4,6 +4,7 @@ import (
 	"cliback/transport"
 	"errors"
 	"regexp"
+	"sort"
 	"sync"
 )
 
@@ -48,8 +49,10 @@ func (pb *previous_backups) Search(t string) error{
 		}
 	}
 	if len(result_chain) <1 {
+		pb.founded=false
 		return errors.New("Previous backups not found")
 	}
+	pb.founded=true
 	if t == "diff"{
 		pb.backaupInfos=result_chain
 	}
@@ -67,5 +70,14 @@ func (pb *previous_backups) Search(t string) error{
 	}
 	pb.backaupInfos=result_chain
 	return nil
+}
+
+func (pb *previous_backups) GetBackupNames() []string{
+	var result []string
+	for _,bi := range pb.backaupInfos{
+		result=append(result,bi.Name)
+	}
+	sort.Strings(result)
+	return result
 }
 

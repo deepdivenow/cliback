@@ -316,7 +316,7 @@ func (ch *ChDb) CreateTable(db,table,meta string) (error) {
 }
 func (ch *ChDb) ShowCreateTable(db,table string) (string,error) {
 	query:=fmt.Sprintf("SHOW CREATE TABLE `%s`.`%s`",db,table)
-	log.Printf("SHOW CREATE TABLE %s.%s",db,table)
+	log.Printf("Get Table Meta: %s.%s",db,table)
 	var result []string
 	rows,err:=ch.Query(query)
 	if err != nil {
