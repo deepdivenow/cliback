@@ -20,7 +20,7 @@ func (lhs *counter) Add(rhs *counter) {
 	lhs.RepoBSize += rhs.RepoBSize
 }
 
-func (ti *table_info) Add(fi *file_info, fname string) {
+func (ti *tableInfo) Add(fi *fileInfo, fname string) {
 	ti.Files[fname] = *fi
 	ti.Size += fi.Size
 	ti.BSize += fi.BSize
@@ -34,12 +34,12 @@ func (ti *table_info) Add(fi *file_info, fname string) {
 	}
 }
 
-func (ti *table_info) AddJob(j *transport.CliFile) {
+func (ti *tableInfo) AddJob(j *transport.CliFile) {
 	storage := j.Storage
 	if storage == "default" {
 		storage = ""
 	}
-	ti.Files[j.Name] = file_info{
+	ti.Files[j.Name] = fileInfo{
 		Size:      j.Size,
 		BSize:     j.BSize,
 		Sha1:      j.Sha1,
@@ -58,7 +58,7 @@ func (ti *table_info) AddJob(j *transport.CliFile) {
 	}
 }
 
-func (di *database_info) Add(ti *table_info) {
+func (di *databaseInfo) Add(ti *tableInfo) {
 	di.counter.Add(&ti.counter)
 	for _, r := range ti.Reference {
 		if !Contains(di.Reference, r) {
@@ -67,7 +67,7 @@ func (di *database_info) Add(ti *table_info) {
 	}
 }
 
-func (bi *backup_info) Add(di *database_info) {
+func (bi *backupInfo) Add(di *databaseInfo) {
 	bi.counter.Add(&di.counter)
 	for _, r := range di.Reference {
 		if !Contains(bi.Reference, r) {
@@ -83,40 +83,40 @@ type counter struct {
 	RepoBSize int64 `json:"repo_bsize"`
 }
 
-type file_info struct {
+type fileInfo struct {
 	Size      int64  `json:"size"`
 	BSize     int64  `json:"bsize"`
 	Sha1      string `json:"sha1"`
 	Reference string `json:"reference,omitempty"`
 	Storage   string `json:"storage,omitempty"`
 }
-type table_info struct {
+type tableInfo struct {
 	counter
-	DbDir        string               `json:"db_dir"`
-	TableDir     string               `json:"table_dir"`
-	BackupStatus string               `json:"backup_status"`
-	Partitions   []string             `json:"partitions"`
-	Dirs         []string             `json:"dirs"`
-	Files        map[string]file_info `json:"files"`
-	MetaData     file_info            `json:"metadata"`
-	Reference    []string             `json:"reference,omitempty"`
+	DbDir        string              `json:"db_dir"`
+	TableDir     string              `json:"table_dir"`
+	BackupStatus string              `json:"backup_status"`
+	Partitions   []string            `json:"partitions"`
+	Dirs         []string            `json:"dirs"`
+	Files        map[string]fileInfo `json:"files"`
+	MetaData     fileInfo            `json:"metadata"`
+	Reference    []string            `json:"reference,omitempty"`
 }
-type database_info struct {
+type databaseInfo struct {
 	counter
-	Tables    map[string]table_info `json:"tables"`
-	MetaData  map[string]file_info  `json:"metadata"`
-	Reference []string              `json:"reference,omitempty"`
+	Tables    map[string]tableInfo `json:"tables"`
+	MetaData  map[string]fileInfo  `json:"metadata"`
+	Reference []string             `json:"reference,omitempty"`
 }
-type backup_info struct {
+type backupInfo struct {
 	counter
-	Name         string                   `json:"name"`
-	Type         string                   `json:"type"`
-	Version      uint                     `json:"version"`
-	StartDate    string                   `json:"start_date"`
-	StopDate     string                   `json:"stop_date"`
-	Reference    []string                 `json:"reference,omitempty"`
-	DBS          map[string]database_info `json:"dbs"`
-	BackupFilter map[string][]string      `json:"filter"`
+	Name         string                  `json:"name"`
+	Type         string                  `json:"type"`
+	Version      uint                    `json:"version"`
+	StartDate    string                  `json:"start_date"`
+	StopDate     string                  `json:"stop_date"`
+	Reference    []string                `json:"reference,omitempty"`
+	DBS          map[string]databaseInfo `json:"dbs"`
+	BackupFilter map[string][]string     `json:"filter"`
 }
 
 // Contains tells whether a contains x.
@@ -183,11 +183,11 @@ func CheckStorage() error {
 		return nil
 	}
 	ch := database.New()
-	chStor, err := ch.GetDisks()
+	chStore, err := ch.GetDisks()
 	if err != nil {
 		return err
 	}
-	c.ClickhouseStorage = chStor
+	c.ClickhouseStorage = chStore
 	return nil
 }
 
@@ -197,10 +197,10 @@ func SplitShadow(p string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	result_shadow := strings.Join(dirs[0:pos+1], "/")
-	result_path := strings.Join(dirs[pos+1:pos+3], "/")
-	result_file := strings.Join(dirs[pos+3:], "/")
-	return []string{result_shadow, result_path, result_file}, nil
+	resultShadow := strings.Join(dirs[0:pos+1], "/")
+	resultPath := strings.Join(dirs[pos+1:pos+3], "/")
+	resultFile := strings.Join(dirs[pos+3:], "/")
+	return []string{resultShadow, resultPath, resultFile}, nil
 }
 
 func RemoveShadowDirs() {

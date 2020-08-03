@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-func GetMetaForRestore() (*backup_info, error) {
-	var bi *backup_info
+func GetMetaForRestore() (*backupInfo, error) {
+	var bi *backupInfo
 	metas, err := transport.SearchMeta()
 	if err != nil {
 		return bi, err
@@ -24,21 +24,21 @@ func GetMetaForRestore() (*backup_info, error) {
 		return bi, errors.New("No backups for restore")
 	}
 	c := config.New()
-	backup_name := c.TaskArgs.JobName
+	backupName := c.TaskArgs.JobName
 	if len(c.TaskArgs.JobName) > 0 {
 		if !Contains(metas, c.TaskArgs.JobName) {
 			return bi, errors.New("Job #{c.TaskArgs.JobName} not exists for restore")
 		}
-		return BackupRead(backup_name)
+		return BackupRead(backupName)
 	} else {
 		log.Printf("Start Restore job: `Last`")
 		for i := len(metas) - 1; i >= 0; i-- {
-			backup_name = metas[i]
-			c.TaskArgs.JobName = backup_name
-			log.Printf("Try read meta for backup: %s", backup_name)
-			bi, err = BackupRead(backup_name)
+			backupName = metas[i]
+			c.TaskArgs.JobName = backupName
+			log.Printf("Try read meta for backup: %s", backupName)
+			bi, err = BackupRead(backupName)
 			if err != nil {
-				log.Printf("Read meta for backup: %s, Fail %s", backup_name, err)
+				log.Printf("Read meta for backup: %s, Fail %s", backupName, err)
 				continue
 			}
 			return bi, nil
@@ -72,22 +72,25 @@ func Restore() error {
 	}
 }
 
-func Restorev1(bi *backup_info) error {
+func Restorev1(bi *backupInfo) error {
 	ch := database.New()
 	c := config.New()
-	for db, db_info := range bi.DBS {
-		ch.CreateDatabase(db)
-		for table, table_info := range db_info.Tables {
-			if len(table_info.DbDir) < 1 {
-				table_info.DbDir = db
+	for db, dbInfo := range bi.DBS {
+		err := ch.CreateDatabase(db)
+		if err != nil {
+			log.Printf("Create database error: %v", err)
+		}
+		for table, tableInfo := range dbInfo.Tables {
+			if len(tableInfo.DbDir) < 1 {
+				tableInfo.DbDir = db
 			}
-			if len(table_info.TableDir) < 1 {
-				table_info.TableDir = table
+			if len(tableInfo.TableDir) < 1 {
+				tableInfo.TableDir = table
 			}
 			mi := bi.DBS[db].MetaData[table]
 			mf := transport.MetaFile{
-				Name:     table_info.TableDir + ".sql",
-				Path:     table_info.DbDir,
+				Name:     tableInfo.TableDir + ".sql",
+				Path:     tableInfo.DbDir,
 				JobName:  c.TaskArgs.JobName,
 				TryRetry: false,
 				Sha1:     mi.Sha1,
@@ -103,19 +106,19 @@ func Restorev1(bi *backup_info) error {
 			if err != nil {
 				log.Println(err)
 			}
-			err = restoreTable(&table_info)
+			err = restoreTable(&tableInfo)
 			if err != nil {
 				log.Println(err)
 			}
-			if len(table_info.Partitions) == 1 && table_info.Partitions[0] == "tuple()" {
-				for _, dir := range table_info.Dirs {
+			if len(tableInfo.Partitions) == 1 && tableInfo.Partitions[0] == "tuple()" {
+				for _, dir := range tableInfo.Dirs {
 					err = ch.AttachPartitionByDir(db, table, dir)
 					if err != nil {
 						log.Printf("Error Attach dir `%s`.`%s`.%s", db, table, dir)
 					}
 				}
 			} else {
-				for _, part := range table_info.Partitions {
+				for _, part := range tableInfo.Partitions {
 					err = ch.AttachPartition(db, table, part)
 					if err != nil {
 						log.Printf("Error Attach partition `%s`.`%s`.%s", db, table, part)
@@ -127,47 +130,47 @@ func Restorev1(bi *backup_info) error {
 	return nil
 }
 
-func Restorev2(bi *backup_info) error {
+func Restorev2(bi *backupInfo) error {
 	return nil
 }
 
-func get_restore_objects() (map[string][]string, error) {
-	var restore_objects map[string][]string
+func getRestoreObjects() (map[string][]string, error) {
+	var restoreObjects map[string][]string
 
-	return restore_objects, nil
+	return restoreObjects, nil
 }
 
-func restoreTable(ti *table_info) error {
-	var wp_task workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
+func restoreTable(ti *tableInfo) error {
+	var wpTask workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
 		return RestoreRun(field)
 	}
-	wp := workerpool.MakeWorkerPool(wp_task, 8, 3, 10)
+	wp := workerpool.MakeWorkerPool(wpTask, 8, 3, 10)
 	wp.Start()
-	go RestoreFiles(ti, wp.Get_Jobs_Chan())
-	for job := range wp.Get_Results_Chan() {
+	go RestoreFiles(ti, wp.GetJobsChan())
+	for job := range wp.GetResultsChan() {
 		_, _ = job.(transport.CliFile)
 	}
 	return nil
 }
 
-func RestoreFiles(ti *table_info, jobs_chan chan<- workerpool.TaskElem) {
-	for file, f_info := range ti.Files {
+func RestoreFiles(ti *tableInfo, jobsChan chan<- workerpool.TaskElem) {
+	for file, fileInfo := range ti.Files {
 		cliF := transport.CliFile{
 			Name:       file,
 			Path:       path.Join(ti.DbDir, ti.TableDir),
 			RunJobType: transport.Restore,
 			TryRetry:   false,
-			Sha1:       f_info.Sha1,
-			Size:       f_info.Size,
-			BSize:      f_info.BSize,
-			Reference:  f_info.Reference,
-			Storage:    f_info.Storage,
+			Sha1:       fileInfo.Sha1,
+			Size:       fileInfo.Size,
+			BSize:      fileInfo.BSize,
+			Reference:  fileInfo.Reference,
+			Storage:    fileInfo.Storage,
 		}
 		log.Printf("Restore archive: %s to %s", cliF.Archive(), cliF.RestoreDest())
-		jobs_chan <- cliF
+		jobsChan <- cliF
 	}
-	close(jobs_chan)
+	close(jobsChan)
 }
 
 func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
@@ -198,13 +201,13 @@ func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
 	}
 }
 
-func BackupRead(backup_name string) (*backup_info, error) {
+func BackupRead(backupName string) (*backupInfo, error) {
 	c := config.New()
-	bi := new(backup_info)
+	bi := new(backupInfo)
 	mf := transport.MetaFile{
 		Name:     "backup.json",
 		Path:     "",
-		JobName:  backup_name,
+		JobName:  backupName,
 		TryRetry: false,
 		Sha1:     "",
 	}
@@ -218,7 +221,7 @@ func BackupRead(backup_name string) (*backup_info, error) {
 	err = json.Unmarshal(mf.Content.Bytes(), bi)
 	if err != nil {
 		if c.TaskArgs.Debug {
-			log.Println("Unmarshal: %v", err)
+			log.Printf("Unmarshal: %v", err)
 		}
 		return nil, err
 	}

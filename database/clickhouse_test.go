@@ -19,12 +19,12 @@ var (
 func TestGetDBS(t *testing.T) {
 	ch := New()
 	ch.SetDSN(testDSN)
-	getdbs, err := ch.GetDBS()
+	getDBS, err := ch.GetDBS()
 	if err == nil {
-		if len(getdbs) < 1 {
-			t.Error("Number DBS must be more then zero", getdbs)
+		if len(getDBS) < 1 {
+			t.Error("Number DBS must be more then zero", getDBS)
 		} else {
-			log.Printf("Databases: %s\n", getdbs)
+			log.Printf("Databases: %s\n", getDBS)
 		}
 	} else {
 		t.Error("Fail connect to database", err)
@@ -101,17 +101,17 @@ func TestGetDisks(t *testing.T) {
 }
 func TestReplaceReplicatedMeta(t *testing.T) {
 	meta := "CREATE TABLE IF NOT EXISTS `analytics`.`google_analytics_split_event`\n(\n`domain` String,\n     `created_at` DateTime,\n     `user_id` Nullable(String),\n     `referrer` Nullable(String),\n     `target` Nullable(String),\n     `ga_id` Nullable(String),\n     `device` Nullable(String),\n     `utm_source` Nullable(String),\n     `utm_campaign` Nullable(String),\n     `utm_medium` Nullable(String),\n     `utm_content` Nullable(String),\n     `experiments` Nullable(String),\n     `_header_luna_id` String,\n     `_date` Date\n )\n ENGINE = ReplicatedMergeTree('/var/lib/clickhouse/first/analytics.google_analytics_split_event', '{replica}')\n PARTITION BY toYear(created_at)\n ORDER BY created_at\n SETTINGS index_granularity = 8192"
-	meta_expect := "CREATE TABLE IF NOT EXISTS `analytics`.`google_analytics_split_event`\n(\n`domain` String,\n     `created_at` DateTime,\n     `user_id` Nullable(String),\n     `referrer` Nullable(String),\n     `target` Nullable(String),\n     `ga_id` Nullable(String),\n     `device` Nullable(String),\n     `utm_source` Nullable(String),\n     `utm_campaign` Nullable(String),\n     `utm_medium` Nullable(String),\n     `utm_content` Nullable(String),\n     `experiments` Nullable(String),\n     `_header_luna_id` String,\n     `_date` Date\n )\n ENGINE = MergeTree()\n PARTITION BY toYear(created_at)\n ORDER BY created_at\n SETTINGS index_granularity = 8192"
+	metaExpect := "CREATE TABLE IF NOT EXISTS `analytics`.`google_analytics_split_event`\n(\n`domain` String,\n     `created_at` DateTime,\n     `user_id` Nullable(String),\n     `referrer` Nullable(String),\n     `target` Nullable(String),\n     `ga_id` Nullable(String),\n     `device` Nullable(String),\n     `utm_source` Nullable(String),\n     `utm_campaign` Nullable(String),\n     `utm_medium` Nullable(String),\n     `utm_content` Nullable(String),\n     `experiments` Nullable(String),\n     `_header_luna_id` String,\n     `_date` Date\n )\n ENGINE = MergeTree()\n PARTITION BY toYear(created_at)\n ORDER BY created_at\n SETTINGS index_granularity = 8192"
 	meta = ReplaceCutReplicatedTable(meta)
-	if meta != meta_expect {
+	if meta != metaExpect {
 		t.Error("Meta replicationMergeTree BAD replace")
 	}
 }
-func TestReplaceReplicatedMetav2(t *testing.T) {
+func TestReplaceReplicatedMetaV2(t *testing.T) {
 	meta := "ATTACH TABLE visit\n(\n`target` String,\n`ga_id` String,\n`campaign_id` Int32,\n`ip` String,\n`referrer` String,\n`datetime` DateTime,\n`type` String,\n`request_id` UUID,\n`partner_id` Int32,\n`manager_id` Int32,\n`date` Date\n)\nENGINE = ReplicatedMergeTree('/var/lib/clickhouse/first/visit', '{replica}', date, (request_id, date), 8192)"
-	meta_expect := "ATTACH TABLE visit\n(\n`target` String,\n`ga_id` String,\n`campaign_id` Int32,\n`ip` String,\n`referrer` String,\n`datetime` DateTime,\n`type` String,\n`request_id` UUID,\n`partner_id` Int32,\n`manager_id` Int32,\n`date` Date\n)\nENGINE = MergeTree(date,(request_id,date),8192)"
+	metaExpect := "ATTACH TABLE visit\n(\n`target` String,\n`ga_id` String,\n`campaign_id` Int32,\n`ip` String,\n`referrer` String,\n`datetime` DateTime,\n`type` String,\n`request_id` UUID,\n`partner_id` Int32,\n`manager_id` Int32,\n`date` Date\n)\nENGINE = MergeTree(date,(request_id,date),8192)"
 	meta = ReplaceCutReplicatedTable(meta)
-	if meta != meta_expect {
+	if meta != metaExpect {
 		t.Error("Meta replicationMergeTree BAD replace")
 	}
 }

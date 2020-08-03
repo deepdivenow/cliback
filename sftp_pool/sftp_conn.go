@@ -13,25 +13,25 @@ import (
 )
 
 func MakeSshClientConfig(c map[string]string) ssh.ClientConfig {
-	var ssh_auth []ssh.AuthMethod
+	var sshAuth []ssh.AuthMethod
 	if pass, ok := c["pass"]; ok {
-		ssh_auth = append(ssh_auth, ssh.Password(pass))
+		sshAuth = append(sshAuth, ssh.Password(pass))
 	}
-	var pkey_paths []string
-	if pkey_path, ok := c["public_key"]; ok {
-		pkey_paths = append(pkey_paths, pkey_path)
+	var pkeyPaths []string
+	if pkeyPath, ok := c["public_key"]; ok {
+		pkeyPaths = append(pkeyPaths, pkeyPath)
 	}
-	pkey_paths = append(pkey_paths, "~/.ssh/id_rsa")
-	pkey_paths = append(pkey_paths, "~/.ssh/id_sda")
-	for _, pkey_path := range pkey_paths {
-		if pkey, err := publicKey(pkey_path); err == nil {
-			ssh_auth = append(ssh_auth, pkey)
+	pkeyPaths = append(pkeyPaths, "~/.ssh/id_rsa")
+	pkeyPaths = append(pkeyPaths, "~/.ssh/id_sda")
+	for _, pkeyPath := range pkeyPaths {
+		if pkey, err := publicKey(pkeyPath); err == nil {
+			sshAuth = append(sshAuth, pkey)
 		}
 	}
 
 	clientConfig := ssh.ClientConfig{
 		User:            c["user"],
-		Auth:            ssh_auth,
+		Auth:            sshAuth,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		//HostKeyCallback: ssh.FixedHostKey(hostKey),
 	}
@@ -64,38 +64,17 @@ func MakeConnection(cmap map[string]string) (*ssh.Client, *sftp.Client, error) {
 	config := MakeSshClientConfig(cmap)
 
 	// connect
-	ssh_client, err := ssh.Dial("tcp", cmap["remote"]+":"+cmap["port"], &config)
+	sshClient, err := ssh.Dial("tcp", cmap["remote"]+":"+cmap["port"], &config)
 	if err != nil {
 		return nil, nil, err
 	}
 	// create new SFTP client
-	sftp_client, err := sftp.NewClient(ssh_client)
+	sftpClient, err := sftp.NewClient(sshClient)
 	if err != nil {
-		ssh_client.Close()
+		sshClient.Close()
 		return nil, nil, err
 	}
-	return ssh_client, sftp_client, nil
-	//defer client.Close()
-	//
-	//// create destination file
-	//dstFile, err := client.Create("/tmp/algo_2020_1.zip")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//defer dstFile.Close()
-	//
-	//// create source file
-	//srcFile, err := os.Open("/home/dro/DOCK_VIDEO/OTUS/algo_2020_1.zip")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//
-	//// copy source file to destination file
-	//bytes, err := io.Copy(dstFile, srcFile)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//fmt.Printf("%d bytes copied\n", bytes)
+	return sshClient, sftpClient, nil
 }
 
 func getHostKey(host string) ssh.PublicKey {

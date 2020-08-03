@@ -8,13 +8,13 @@ import (
 	"os"
 )
 
-type transport_closer struct {
+type transportCloser struct {
 	Closer []io.Closer
 }
 
-func (t *transport_closer) Close() error {
+func (t *transportCloser) Close() error {
 	for i := len(t.Closer) - 1; i >= 0; i-- {
-		t.Closer[i].Close()
+		_ = t.Closer[i].Close()
 	}
 	return nil
 }
@@ -40,14 +40,14 @@ type transport struct {
 
 func (t *transport) Flush() error {
 	for _, f := range t.Flusher {
-		f.Flush()
+		_ = f.Flush()
 	}
 	return nil
 }
 
 func (t *transport) Close() error {
 	for i := len(t.Closer) - 1; i >= 0; i-- {
-		t.Closer[i].Close()
+		_ = t.Closer[i].Close()
 	}
 	return nil
 }
@@ -64,16 +64,16 @@ func (t *transport) Copy() (int64, error) {
 	if err != nil {
 		return num, err
 	}
-	t.Flush()
-	s, serr := t.Stater[0].Stat()
+	_ = t.Flush()
+	s, err := t.Stater[0].Stat()
 	if err == nil {
 		t.Size = s.Size()
 	}
 	d, err := t.Stater[1].Stat()
-	if serr == nil {
+	if err == nil {
 		t.BSize = d.Size()
 	}
-	return num, err
+	return num, nil
 }
 
 func MakeTransport(file CliFile) (*transport, error) {

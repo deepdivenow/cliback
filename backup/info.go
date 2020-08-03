@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-func (bi *backup_info) String() string {
+func (bi *backupInfo) String() string {
 	var outStr string
 	outStr += fmt.Sprintf("%s backup: %s\n", bi.Type, bi.Name)
 	outStr += fmt.Sprintf("\ttimestamp start/stop: %s / %s\n", bi.StartDate, bi.StopDate)
@@ -17,9 +17,9 @@ func (bi *backup_info) String() string {
 		outStr += fmt.Sprintf("\treference: %s\n", bi.Reference)
 	}
 	if bi.Type == "part" {
-		for db, db_info := range bi.DBS {
-			for table, table_info := range db_info.Tables {
-				outStr += fmt.Sprintf("\tdb: %s table: %s parts: %v\n", db, table, table_info.Partitions)
+		for db, dbInfo := range bi.DBS {
+			for table, tableInfo := range dbInfo.Tables {
+				outStr += fmt.Sprintf("\tdb: %s table: %s parts: %v\n", db, table, tableInfo.Partitions)
 			}
 		}
 	}
@@ -31,8 +31,8 @@ func Info() error {
 	if err != nil {
 		return err
 	}
-	for _, back_name := range metas {
-		bi, err := BackupRead(back_name)
+	for _, backupName := range metas {
+		bi, err := BackupRead(backupName)
 		if err == nil {
 			fmt.Print(bi)
 		}

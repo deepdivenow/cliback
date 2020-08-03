@@ -32,7 +32,7 @@ const (
 	Info
 )
 
-type taskargs struct {
+type taskArgs struct {
 	JobType      RunJobType
 	JobName      string
 	JobPartition string
@@ -49,7 +49,7 @@ type ChMetaOpts struct {
 type config struct {
 	BackupStorage         backupStorage       `yaml:"backup_storage"`
 	ShadowDirIncr         int                 `yaml:"-"`
-	TaskArgs              taskargs            `yaml:"-"`
+	TaskArgs              taskArgs            `yaml:"-"`
 	ClickhouseBackupConn  Connection          `yaml:"clickhouse_backup_conn"`
 	ClickhouseRestoreConn Connection          `yaml:"clickhouse_restore_conn"`
 	ClickhouseRestoreOpts ChMetaOpts          `yaml:"clickhouse_restore_opts"`
