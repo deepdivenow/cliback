@@ -2,10 +2,13 @@ package backup
 
 import (
 	"cliback/config"
+	"cliback/database"
 	"cliback/transport"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
 	"strings"
 	"time"
 )
@@ -34,11 +37,16 @@ func (ti *table_info) Add (fi *file_info,fname string){
 }
 
 func (ti *table_info) AddJob (j *transport.CliFile){
+	storage:=j.Storage
+	if storage=="default"{
+		storage=""
+	}
 	ti.Files[j.Name]=file_info{
 		Size:  j.Size,
 		BSize: j.BSize,
 		Sha1:  j.Sha1,
 		Reference: j.Reference,
+		Storage: storage,
 	}
 	ti.Size+=j.Size
 	ti.BSize+=j.BSize
@@ -82,6 +90,7 @@ type file_info struct {
 	BSize int64      `json:"bsize"`
 	Sha1  string      `json:"sha1"`
 	Reference string  `json:"reference,omitempty"`
+	Storage string    `json:"storage,omitempty"`
 }
 type table_info struct {
 	counter
@@ -157,6 +166,33 @@ func GetDirs(p string) ([]string, error){
 	return result,nil
 }
 
+func GetDirsInShadow(DbDir,TableDir string) []string{
+	var result []string
+	c:=config.New()
+	for storage,_ := range(c.ClickhouseStorage){
+		res,err:=GetDirs(path.Join(c.GetShadow(storage),"data",DbDir,TableDir))
+		if err != nil{
+			continue
+		}
+		result=append(result, res...)
+	}
+	return result
+}
+
+func CheckStorage() error{
+	c:=config.New()
+	if c.ClickhouseStorage != nil{
+		return nil
+	}
+	ch:=database.New()
+	chStor,err:=ch.GetDisks()
+	if err != nil{
+		return err
+	}
+	c.ClickhouseStorage=chStor
+	return nil
+}
+
 func SplitShadow(p string)([]string, error){
 	dirs:=strings.Split(p,"/")
 	pos,err:=Position(dirs,"data")
@@ -167,4 +203,18 @@ func SplitShadow(p string)([]string, error){
 	result_path:=strings.Join(dirs[pos+1:pos+3],"/")
 	result_file:=strings.Join(dirs[pos+3:],"/")
 	return []string{result_shadow,result_path,result_file},nil
+}
+
+func RemoveShadowDirs() {
+	c:=config.New()
+	for storage,_ := range(c.ClickhouseStorage){
+		shDir:=c.GetShadow(storage)
+		st,err:=os.Stat(shDir)
+		if err != nil {
+			continue
+		}
+		if st.IsDir(){
+			os.RemoveAll(shDir)
+		}
+	}
 }

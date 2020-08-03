@@ -256,7 +256,7 @@ func (ch *ChDb) FreezeTable(db,table,part string) error {
 }
 func (ch *ChDb) GetIncrement() (int,error) {
 	c:=config.New()
-	b, err := ioutil.ReadFile(path.Join(c.ClickhouseDir,"shadow/increment.txt"))
+	b, err := ioutil.ReadFile(path.Join(c.ClickhouseStorage["default"],"shadow/increment.txt"))
 	if err != nil { return 0, err }
 
 	lines := strings.Split(string(b), "\n")
@@ -324,9 +324,9 @@ func (ch *ChDb) ShowCreateTable(db,table string) (string,error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var parttition string
-		if err:=rows.Scan(&parttition); err == nil{
-			result=append(result, parttition)
+		var partition string
+		if err:=rows.Scan(&partition); err == nil{
+			result=append(result, partition)
 		}
 	}
 	if err := rows.Err(); err != nil {

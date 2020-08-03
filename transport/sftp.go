@@ -66,7 +66,7 @@ func MakeRestoreTransportSFTP(file CliFile) (*transport,error) {
 		return t,err
 	}
 	t.Closer = append(t.Closer, source)
-	dest_file := path.Join(c.ClickhouseDir,"data",file.RestoreDest())
+	dest_file := path.Join(file.RestoreDest())
 	MakeDirsRecurse(path.Dir(dest_file))
 	dest,err := os.Create(dest_file)
 	if err != nil {

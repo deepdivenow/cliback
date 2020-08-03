@@ -24,6 +24,7 @@ type CliFile struct {
 	Path  string
 	Reference string
 	Shadow string
+	Storage string
 	RunJobType RunJobType
 	TryRetry bool
 	Sha1 string
@@ -37,7 +38,12 @@ func (cf *CliFile) Archive() (string)  {
 	return path.Join(c.TaskArgs.JobName,cf.Path,cf.Name+".gz")
 }
 func (cf *CliFile) RestoreDest() (string)  {
-	return path.Join(cf.Path,"detached",cf.Name)
+	c:=config.New()
+	store:=cf.Storage
+	if len(cf.Storage) < 1{
+		store="default"
+	}
+	return path.Join(c.ClickhouseStorage[store],"data",cf.Path,"detached",cf.Name)
 }
 func (cf *CliFile) BackupSrc() (string)  {
 	return path.Join(cf.Shadow,cf.Path,cf.Name)

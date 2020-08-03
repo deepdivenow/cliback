@@ -43,6 +43,7 @@ func (pb *previous_backups) Search(t string) error{
 				continue
 			}
 			result_chain=append(result_chain, meta)
+			fullBackupPos=i
 			break
 		}
 	}

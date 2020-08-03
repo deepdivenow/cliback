@@ -59,7 +59,7 @@ func MakeRestoreTransportLocal(file CliFile) (*transport,error){
 		return nil, err
 	}
 	t.Closer = append(t.Closer, source)
-	dest,err := os.Create(path.Join(c.ClickhouseDir,"data",file.RestoreDest()))
+	dest,err := os.Create(file.RestoreDest())
 	if err != nil {
 		return nil,err
 	}
