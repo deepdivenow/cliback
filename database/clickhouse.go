@@ -223,6 +223,25 @@ func (ch *ChDb) GetFNames(db,table,part string) ([2]string, error) {
 	length:=len(dirs)
 	return [2]string{dirs[length-3],dirs[length-2]},nil
 }
+func (ch *ChDb) GetDisks() (map[string]string, error) {
+	result:=map[string]string{}
+	query:="SELECT name,path FROM system.disks"
+	rows,err:=ch.Query(query)
+	if err != nil {
+		return nil,err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var disk,path string
+		if err:=rows.Scan(&disk,&path); err == nil{
+			result[disk]=path
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil,err
+	}
+	return result,nil
+}
 func (ch *ChDb) FreezeTable(db,table,part string) error {
 	var query string
 	if part=="" {
@@ -237,7 +256,7 @@ func (ch *ChDb) FreezeTable(db,table,part string) error {
 }
 func (ch *ChDb) GetIncrement() (int,error) {
 	c:=config.New()
-	b, err := ioutil.ReadFile(path.Join(c.ClickhouseDir,"shadow/increment.txt"))
+	b, err := ioutil.ReadFile(path.Join(c.ClickhouseStorage["default"],"shadow/increment.txt"))
 	if err != nil { return 0, err }
 
 	lines := strings.Split(string(b), "\n")
@@ -297,7 +316,7 @@ func (ch *ChDb) CreateTable(db,table,meta string) (error) {
 }
 func (ch *ChDb) ShowCreateTable(db,table string) (string,error) {
 	query:=fmt.Sprintf("SHOW CREATE TABLE `%s`.`%s`",db,table)
-	log.Printf("SHOW CREATE TABLE %s.%s",db,table)
+	log.Printf("Get Table Meta: %s.%s",db,table)
 	var result []string
 	rows,err:=ch.Query(query)
 	if err != nil {
@@ -305,9 +324,9 @@ func (ch *ChDb) ShowCreateTable(db,table string) (string,error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var parttition string
-		if err:=rows.Scan(&parttition); err == nil{
-			result=append(result, parttition)
+		var partition string
+		if err:=rows.Scan(&partition); err == nil{
+			result=append(result, partition)
 		}
 	}
 	if err := rows.Err(); err != nil {

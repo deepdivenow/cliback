@@ -10,38 +10,48 @@ import (
 	"errors"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
-	"strconv"
 	"time"
 )
 
-func FindFiles(dir_for_backup string, jobs_chan chan<- workerpool.TaskElem) {
-	err := filepath.Walk(dir_for_backup,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() {
+func FindFiles(jobs_chan chan<- workerpool.TaskElem) {
+	c:=config.New()
+	for storage,_ := range(c.ClickhouseStorage) {
+		dirForBackup :=c.GetShadow(storage)
+		st,err:=os.Stat(dirForBackup)
+		if err != nil {
+			continue
+		}
+		if !st.IsDir() {
+			continue
+		}
+			err = filepath.Walk(dirForBackup,
+			func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.IsDir() {
+					return nil
+				}
+				cPath, err := SplitShadow(path)
+				if err != nil {
+					return nil
+				}
+				cliF := transport.CliFile{
+					Name:       cPath[2],
+					Path:       cPath[1],
+					Shadow:     cPath[0],
+					RunJobType: transport.Backup,
+					TryRetry:   false,
+					Storage:	storage,
+				}
+				log.Printf("Backup  From %s Archive: %s", cliF.BackupSrcShort(), cliF.Archive())
+				jobs_chan <- cliF
 				return nil
-			}
-			cPath,err := SplitShadow(path)
-			if err != nil{
-				return nil
-			}
-			cliF := transport.CliFile{
-				Name:       cPath[2],
-				Path:       cPath[1],
-				Shadow: 	cPath[0],
-				RunJobType: transport.Backup,
-				TryRetry:   false,
-			}
-			log.Printf("Backup  From %s Archive: %s",cliF.BackupSrcShort(),cliF.Archive())
-			jobs_chan <- cliF
-			return nil
-		})
-	if err != nil {
-		log.Println(err)
+			})
+		if err != nil {
+			log.Println(err)
+		}
 	}
 	close(jobs_chan)
 }
@@ -98,10 +108,15 @@ func Backup() error{
 	c:=config.New()
 	ch:=database.New()
 	ch.SetDSN(c.ClickhouseBackupConn)
+	err:=CheckStorage()
+	if err != nil{
+		return err
+	}
 	backup_objects,err:= getBackupObjects()
 	if err != nil{
 		return err
 	}
+
 	if len(c.TaskArgs.JobName) < 1 {
 		c.TaskArgs.JobName=GenerateBackupName()
 	}
@@ -119,7 +134,7 @@ func Backup() error{
 	   c.TaskArgs.BackupType == "incr" {
 		pbs:=GetPreviousBackups()
 		pbs.Search(c.TaskArgs.BackupType)
-		print(len(pbs.backaupInfos))
+		log.Printf("Search delta by backups: %s",pbs.GetBackupNames())
 	}
 	for db,tables := range(backup_objects){
 		c.TaskArgs.DBNow=db
@@ -128,7 +143,7 @@ func Backup() error{
 			MetaData:  nil,
 		}
 		for _,table := range(tables){
-			log.Printf("%s/%s",db,table)
+			log.Printf("Backup table: %s/%s",db,table)
 			c.TaskArgs.TableNow=table
 			var ti table_info
 			if c.TaskArgs.BackupType=="part" {
@@ -196,21 +211,20 @@ func backupTable(db,table,part string)(table_info,error)  {
 		return table_info{BackupStatus: "bad"}, err
 	}
 	time.Sleep(time.Second*5) /// Clickhouse after freeze need some time
-	shDir,err:=ch.GetIncrement()
+	c.ShadowDirIncr,err=ch.GetIncrement()
 	if err != nil{
 		return table_info{BackupStatus: "bad"}, err
 	}
-	c.ShadowDir=path.Join(c.ClickhouseDir,"shadow",strconv.Itoa(shDir))
-	defer os.RemoveAll(c.ShadowDir)
-	ti.Dirs,_=GetDirs(path.Join(c.ShadowDir,"data",ti.DbDir,ti.TableDir))
+	defer RemoveShadowDirs()
+	ti.Dirs=GetDirsInShadow(ti.DbDir,ti.TableDir)
 	var wp_task workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
 		return BackupRun(field)
 	}
 
-	wp := workerpool.MakeWorkerPool(wp_task, 3, 3, 10)
+	wp := workerpool.MakeWorkerPool(wp_task, 8, 3, 10)
 	wp.Start()
-	go FindFiles(c.ShadowDir, wp.Get_Jobs_Chan())
+	go FindFiles(wp.Get_Jobs_Chan())
 
 	for job := range wp.Get_Results_Chan() {
 		j, _ := job.(transport.CliFile)

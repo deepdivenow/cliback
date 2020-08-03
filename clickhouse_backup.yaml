@@ -7,13 +7,19 @@ backup_storage:
     key_filename: '/home/dro/.ssh/id_rsa'
 #  type: local
   backup_dir: '/work/click_back'
-clickhouse_dir: '/tmp/click2'
 clickhouse_backup_conn:
   hostname: centos08
 clickhouse_restore_conn:
   hostname: centos08
 clickhouse_restore_opts:
   replace_replicated_to_default: True
-backup_filter:
-  default:
-    - ontime
+# This option Automated from system.disks
+# You can remap for restore to other location
+# Shadow Increment File Taked from default storage
+#clickhouse_storage:
+#  default: '/var/lib/clickhouse'
+#  sata: '/ssd/clickhouse'
+#  ssd: '/sata/clickhouse'
+#backup_filter:
+#  default:
+#    - ontime2

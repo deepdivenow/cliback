@@ -5,6 +5,8 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
+	"path"
+	"strconv"
 	"sync"
 )
 
@@ -46,12 +48,12 @@ type ChMetaOpts struct {
 
 type config struct {
 	BackupStorage         backupStorage       `yaml:"backup_storage"`
-	ClickhouseDir         string              `yaml:"clickhouse_dir"`
-	ShadowDir             string              `yaml:"-"`
+	ShadowDirIncr         int                 `yaml:"-"`
 	TaskArgs              taskargs            `yaml:"-"`
 	ClickhouseBackupConn  Connection          `yaml:"clickhouse_backup_conn"`
 	ClickhouseRestoreConn Connection          `yaml:"clickhouse_restore_conn"`
 	ClickhouseRestoreOpts ChMetaOpts          `yaml:"clickhouse_restore_opts"`
+	ClickhouseStorage     map[string]string `yaml:"clickhouse_storage"`
 	BackupFilter          map[string][]string `yaml:"backup_filter"`
 }
 
@@ -67,7 +69,7 @@ func New() *config {
 	return instance
 }
 
-func (c *config) Read(filename string)(error)  {
+func (c *config) Read(filename string) error  {
 	yamlFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
@@ -85,6 +87,6 @@ func (c *config) Print() {
 	fmt.Println(c)
 }
 
-func (c *config) SetShadow(s string) {
-	c.ShadowDir = s
+func (c *config) GetShadow(storageName string) string {
+	return path.Join(c.ClickhouseStorage[storageName],"shadow",strconv.Itoa(c.ShadowDirIncr))
 }

@@ -58,6 +58,10 @@ func Restore() error{
 	ch.SetDSN(c.ClickhouseRestoreConn)
 	ch.SetMetaOpts(c.ClickhouseRestoreOpts)
 	defer ch.Close()
+	err=CheckStorage()
+	if err != nil{
+		return err
+	}
 	switch bi.Version{
 	case 1:
 		return Restorev1(bi)
@@ -139,7 +143,7 @@ func restoreTable(ti *table_info) (error) {
 		field, _ := i.(transport.CliFile)
 		return RestoreRun(field)
 	}
-	wp := workerpool.MakeWorkerPool(wp_task, 4, 3, 10)
+	wp := workerpool.MakeWorkerPool(wp_task, 8, 3, 10)
 	wp.Start()
 	go RestoreFiles(ti, wp.Get_Jobs_Chan())
 	for job := range wp.Get_Results_Chan() {
@@ -159,6 +163,7 @@ func RestoreFiles(ti *table_info,jobs_chan chan<- workerpool.TaskElem) {
 			Size: f_info.Size,
 			BSize: f_info.BSize,
 			Reference: f_info.Reference,
+			Storage: f_info.Storage,
 		}
 		log.Printf("Restore archive: %s to %s",cliF.Archive(),cliF.RestoreDest())
 		jobs_chan <- cliF

@@ -87,7 +87,17 @@ func TestFreezeTable(t *testing.T) {
 	if err != nil {
 		t.Error("Error freeze table", err)
 	}
-
+}
+func TestGetDisks(t *testing.T) {
+	ch := New()
+	ch.SetDSN(testDSN)
+	disks,err:=ch.GetDisks()
+	if err != nil {
+		t.Error("Error get disks", err)
+	}
+	if len(disks) < 1{
+		t.Error("Error get disks", err)
+	}
 }
 func TestReplaceReplicatedMeta(t *testing.T) {
 	meta:="CREATE TABLE IF NOT EXISTS `analytics`.`google_analytics_split_event`\n(\n`domain` String,\n     `created_at` DateTime,\n     `user_id` Nullable(String),\n     `referrer` Nullable(String),\n     `target` Nullable(String),\n     `ga_id` Nullable(String),\n     `device` Nullable(String),\n     `utm_source` Nullable(String),\n     `utm_campaign` Nullable(String),\n     `utm_medium` Nullable(String),\n     `utm_content` Nullable(String),\n     `experiments` Nullable(String),\n     `_header_luna_id` String,\n     `_date` Date\n )\n ENGINE = ReplicatedMergeTree('/var/lib/clickhouse/first/analytics.google_analytics_split_event', '{replica}')\n PARTITION BY toYear(created_at)\n ORDER BY created_at\n SETTINGS index_granularity = 8192"
