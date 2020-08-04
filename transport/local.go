@@ -15,19 +15,26 @@ import (
 	"sort"
 )
 
-func MakeDirsRecurse(path string) {
+func MakeDirsRecurse(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		os.MkdirAll(path, 0755)
+		err := os.MkdirAll(path, 0755)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 func MakeBackupTransportLocal(file CliFile) (*transport, error) {
 	c := config.New()
 	t := new(transport)
 	defer t.Cleanup()
 	t.Sha1Sum = sha1.New()
-	dest_file := path.Join(c.BackupStorage.BackupDir, file.Archive())
-	MakeDirsRecurse(path.Dir(dest_file))
-	dest, err := os.Create(dest_file)
+	destFile := path.Join(c.BackupStorage.BackupDir, file.Archive())
+	err := MakeDirsRecurse(path.Dir(destFile))
+	if err != nil {
+		return t, err
+	}
+	dest, err := os.Create(destFile)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +89,12 @@ func WriteMetaLocal(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
 	source := bufio.NewReader(&mf.Content)
-	dest, err := os.Create(path.Join(c.BackupStorage.BackupDir, mf.Archive()))
+	destFile:=path.Join(c.BackupStorage.BackupDir, mf.Archive())
+	err := MakeDirsRecurse(path.Dir(destFile))
+	if err != nil {
+		return err
+	}
+	dest, err := os.Create(destFile)
 	if err != nil {
 		return err
 	}
@@ -94,7 +106,7 @@ func WriteMetaLocal(mf *MetaFile) error {
 	if err != nil {
 		return err
 	}
-	gzw.Flush()
+	_ = gzw.Flush()
 	mf.Sha1 = hex.EncodeToString(sha1sum.Sum(nil))
 	s, err := dest.Stat()
 	if err == nil {
@@ -145,7 +157,7 @@ func ReadMetaLocal(mf *MetaFile) error {
 		s = source
 	}
 	_, err = io.Copy(mwr, s)
-	dest.Flush()
+	_ = dest.Flush()
 	if err != nil {
 		return err
 	}
@@ -154,19 +166,19 @@ func ReadMetaLocal(mf *MetaFile) error {
 }
 
 func SearchMetaLocal() ([]string, error) {
-	var bnames []string
+	var backupNames []string
 	c := config.New()
 	fileInfo, err := ioutil.ReadDir(c.BackupStorage.BackupDir)
 	if err != nil {
-		return bnames, err
+		return backupNames, err
 	}
 	for _, file := range fileInfo {
 		if file.IsDir() {
-			if re_match, _ := regexp.MatchString("^(\\d{8}_\\d{6}[FDIP]{1})$", file.Name()); re_match {
-				bnames = append(bnames, file.Name())
+			if reMatch, _ := regexp.MatchString("^(\\d{8}_\\d{6}[FDIP]{1})$", file.Name()); reMatch {
+				backupNames = append(backupNames, file.Name())
 			}
 		}
 	}
-	sort.Strings(bnames)
-	return bnames, nil
+	sort.Strings(backupNames)
+	return backupNames, nil
 }

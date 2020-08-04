@@ -13,120 +13,120 @@ import (
 )
 
 var (
-	once               sync.Once
-	sftp_pool_instance *SftpPool
+	once             sync.Once
+	sftpPoolInstance *SftpPool
 )
 
 type SftpConn struct {
-	ssh_cli  *ssh.Client
-	sftp_cli *sftp.Client
-	in_use   *bool
+	sshCli  *ssh.Client
+	sftpCli *sftp.Client
+	inUse   *bool
 }
 
 type SftpPool struct {
-	pool        *list.List
-	max_conn    int
-	conn_in_use int
-	conn_opened int
-	ssh_config  map[string]string
-	mux         sync.Mutex
+	pool       *list.List
+	maxConn    int
+	connInUse  int
+	connOpened int
+	sshConfig  map[string]string
+	mux        sync.Mutex
 }
 
 func New() *SftpPool {
 	once.Do(func() {
-		sftp_pool_instance = new(SftpPool)
-		sftp_pool_instance.max_conn = 10
+		sftpPoolInstance = new(SftpPool)
+		sftpPoolInstance.maxConn = 10
 		c := config.New()
-		sftp_pool_instance.ssh_config = make(map[string]string)
-		sftp_pool_instance.ssh_config["remote"] = c.BackupStorage.BackupConn.HostName
-		sftp_pool_instance.ssh_config["port"] = strconv.FormatUint(uint64(c.BackupStorage.BackupConn.Port), 10)
-		sftp_pool_instance.ssh_config["user"] = c.BackupStorage.BackupConn.UserName
-		sftp_pool_instance.ssh_config["pass"] = c.BackupStorage.BackupConn.Password
-		sftp_pool_instance.ssh_config["public_key"] = c.BackupStorage.BackupConn.KeyFilename
-		sftp_pool_instance.pool = new(list.List)
+		sftpPoolInstance.sshConfig = make(map[string]string)
+		sftpPoolInstance.sshConfig["remote"] = c.BackupStorage.BackupConn.HostName
+		sftpPoolInstance.sshConfig["port"] = strconv.FormatUint(uint64(c.BackupStorage.BackupConn.Port), 10)
+		sftpPoolInstance.sshConfig["user"] = c.BackupStorage.BackupConn.UserName
+		sftpPoolInstance.sshConfig["pass"] = c.BackupStorage.BackupConn.Password
+		sftpPoolInstance.sshConfig["public_key"] = c.BackupStorage.BackupConn.KeyFilename
+		sftpPoolInstance.pool = new(list.List)
 	})
-	return sftp_pool_instance
+	return sftpPoolInstance
 }
 
-func (sp *SftpPool) SetMaxConn(max_conn int) {
-	sp.max_conn = max_conn
+func (sp *SftpPool) SetMaxConn(maxConn int) {
+	sp.maxConn = maxConn
 }
 
-func (sp *SftpPool) SetSSHConfig(Ssh_Config map[string]string) {
-	sp.ssh_config = Ssh_Config
+func (sp *SftpPool) SetSSHConfig(SshConfig map[string]string) {
+	sp.sshConfig = SshConfig
 }
 
 func (sp *SftpPool) GetClient() (*sftp.Client, error) {
 	sp.mux.Lock()
 	defer sp.mux.Unlock()
-	if sp.max_conn <= sp.conn_in_use {
+	if sp.maxConn <= sp.connInUse {
 		return nil, errors.New("No free connection, retry later")
 	}
-	if sp.conn_opened > sp.conn_in_use {
+	if sp.connOpened > sp.connInUse {
 		// Search unused connections
 		for e := sp.pool.Front(); e != nil; e = e.Next() {
 			p := e.Value.(SftpConn)
-			if *p.in_use {
+			if *p.inUse {
 				continue
 			}
 			// Add here check connection
-			*p.in_use = true
-			sp.conn_in_use++
-			return p.sftp_cli, nil
+			*p.inUse = true
+			sp.connInUse++
+			return p.sftpCli, nil
 		}
 	}
-	ssh_cli, sftp_cli, err := MakeConnection(sp.ssh_config)
+	sshCli, sftpCli, err := MakeConnection(sp.sshConfig)
 	if err != nil {
 		return nil, err
 	}
 	bt := new(bool)
 	*bt = true
 	sp.pool.PushBack(SftpConn{
-		ssh_cli:  ssh_cli,
-		sftp_cli: sftp_cli,
-		in_use:   bt,
+		sshCli:  sshCli,
+		sftpCli: sftpCli,
+		inUse:   bt,
 	})
-	sp.conn_in_use++
-	sp.conn_opened++
-	return sftp_cli, nil
+	sp.connInUse++
+	sp.connOpened++
+	return sftpCli, nil
 }
 
 func (sp *SftpPool) GetClientLoop() (*sftp.Client, error) {
 	for {
-		sftp_client, err := sp.GetClient()
+		sftpClient, err := sp.GetClient()
 		if err != nil {
 			log.Printf("Error Get SFTP Client: %s", err)
 			time.Sleep(time.Second * 5)
 			continue
 		}
-		return sftp_client, err
+		return sftpClient, err
 	}
 }
 
-func (sp *SftpPool) CheckConnection(sftp_client *sftp.Client) error {
+func (sp *SftpPool) CheckConnection(sftpClient *sftp.Client) error {
 	c := config.New()
-	_, err := sftp_client.Stat(c.BackupStorage.BackupDir)
+	_, err := sftpClient.Stat(c.BackupStorage.BackupDir)
 	return err
 }
 
 func (sp *SftpPool) RemoveConnection(e *list.Element) error {
 	p := e.Value.(SftpConn)
-	sp.conn_opened--
-	p.sftp_cli.Close()
-	p.ssh_cli.Close()
+	sp.connOpened--
+	p.sftpCli.Close()
+	p.sshCli.Close()
 	sp.pool.Remove(e)
 	return nil
 }
 
-func (sp *SftpPool) ReleaseClient(sftp_client *sftp.Client) error {
+func (sp *SftpPool) ReleaseClient(sftpClient *sftp.Client) error {
 	sp.mux.Lock()
 	defer sp.mux.Unlock()
 	for e := sp.pool.Front(); e != nil; e = e.Next() {
 		p := e.Value.(SftpConn)
-		if p.sftp_cli == sftp_client {
-			*p.in_use = false
-			sp.conn_in_use--
-			err := sp.CheckConnection(sftp_client)
+		if p.sftpCli == sftpClient {
+			*p.inUse = false
+			sp.connInUse--
+			err := sp.CheckConnection(sftpClient)
 			if err != nil {
 				sp.RemoveConnection(e)
 			}
@@ -137,19 +137,19 @@ func (sp *SftpPool) ReleaseClient(sftp_client *sftp.Client) error {
 	return nil
 }
 
-type sftp_release_closer struct {
-	sftp_pool *SftpPool
-	sftp_cli  *sftp.Client
+type sftpReleaseCloser struct {
+	sftpPool *SftpPool
+	sftpCli  *sftp.Client
 }
 
-func (src *sftp_release_closer) Close() error {
-	err := src.sftp_pool.ReleaseClient(src.sftp_cli)
+func (src *sftpReleaseCloser) Close() error {
+	err := src.sftpPool.ReleaseClient(src.sftpCli)
 	return err
 }
 
-func (sp *SftpPool) MakeReleaseCloser(sftp_cli *sftp.Client) *sftp_release_closer {
-	return &sftp_release_closer{
-		sftp_pool: sp,
-		sftp_cli:  sftp_cli,
+func (sp *SftpPool) MakeReleaseCloser(sftpCli *sftp.Client) *sftpReleaseCloser {
+	return &sftpReleaseCloser{
+		sftpPool: sp,
+		sftpCli:  sftpCli,
 	}
 }

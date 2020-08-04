@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func FindFiles(jobs_chan chan<- workerpool.TaskElem) {
+func FindFiles(jobsChan chan<- workerpool.TaskElem) {
 	c := config.New()
 	for storage, _ := range c.ClickhouseStorage {
 		dirForBackup := c.GetShadow(storage)
@@ -46,20 +46,20 @@ func FindFiles(jobs_chan chan<- workerpool.TaskElem) {
 					Storage:    storage,
 				}
 				log.Printf("Backup  From %s Archive: %s", cliF.BackupSrcShort(), cliF.Archive())
-				jobs_chan <- cliF
+				jobsChan <- cliF
 				return nil
 			})
 		if err != nil {
 			log.Println(err)
 		}
 	}
-	close(jobs_chan)
+	close(jobsChan)
 }
 
 func CheckForReference(cf transport.CliFile) transport.CliFile {
 	pbs := GetPreviousBackups()
 	c := config.New()
-	for _, pb := range pbs.backaupInfos {
+	for _, pb := range pbs.backupInfos {
 		cfOld := pb.DBS[c.TaskArgs.DBNow].Tables[c.TaskArgs.TableNow].Files[cf.Name]
 		if len(cfOld.Reference) > 0 {
 			continue
@@ -113,7 +113,7 @@ func Backup() error {
 	if err != nil {
 		return err
 	}
-	backup_objects, err := getBackupObjects()
+	backupObjects, err := getBackupObjects()
 	if err != nil {
 		return err
 	}
@@ -123,30 +123,33 @@ func Backup() error {
 	}
 	log.Printf("Backup Job Name: %s", c.TaskArgs.JobName)
 
-	bi := backup_info{
+	bi := backupInfo{
 		Name:         c.TaskArgs.JobName,
 		Type:         c.TaskArgs.BackupType,
 		Version:      1,
-		BackupFilter: backup_objects,
+		BackupFilter: backupObjects,
 		StartDate:    GetFormatedTime(),
-		DBS:          make(map[string]database_info),
+		DBS:          make(map[string]databaseInfo),
 	}
 	if c.TaskArgs.BackupType == "diff" ||
 		c.TaskArgs.BackupType == "incr" {
 		pbs := GetPreviousBackups()
-		pbs.Search(c.TaskArgs.BackupType)
+		err := pbs.Search(c.TaskArgs.BackupType)
+		if err != nil {
+			return err
+		}
 		log.Printf("Search delta by backups: %s", pbs.GetBackupNames())
 	}
-	for db, tables := range backup_objects {
+	for db, tables := range backupObjects {
 		c.TaskArgs.DBNow = db
-		di := database_info{
-			Tables:   make(map[string]table_info),
+		di := databaseInfo{
+			Tables:   make(map[string]tableInfo),
 			MetaData: nil,
 		}
 		for _, table := range tables {
-			log.Printf("Backup table: %s/%s", db, table)
+			log.Printf("Backup table: `%s`.`%s`", db, table)
 			c.TaskArgs.TableNow = table
-			var ti table_info
+			var ti tableInfo
 			if c.TaskArgs.BackupType == "part" {
 				ti, _ = backupTable(db, table, c.TaskArgs.JobPartition)
 			} else {
@@ -158,18 +161,21 @@ func Backup() error {
 		bi.DBS[db] = di
 		bi.Add(&di)
 		bi.StopDate = GetFormatedTime()
-		BackupInfoWrite(&bi)
+		err = BackupInfoWrite(&bi)
+		if err != nil {
+			log.Printf("Write backup info error: %v", err)
+		}
 	}
 	return nil
 }
 
-func backupMeta(db, table, fdb, ftable string) (transport.MetaFile, error) {
+func backupMeta(db, table, fDB, fTable string) (transport.MetaFile, error) {
 	//mi := bi.DBS[db].MetaData[table]
 	c := config.New()
 	ch := database.New()
 	mf := transport.MetaFile{
-		Name:     ftable + ".sql",
-		Path:     fdb,
+		Name:     fTable + ".sql",
+		Path:     fDB,
 		JobName:  c.TaskArgs.JobName,
 		TryRetry: false,
 	}
@@ -183,22 +189,22 @@ func backupMeta(db, table, fdb, ftable string) (transport.MetaFile, error) {
 	return mf, err
 }
 
-func backupTable(db, table, part string) (table_info, error) {
+func backupTable(db, table, part string) (tableInfo, error) {
 	c := config.New()
 	ch := database.New()
 	parts, err := ch.GetPartitions(db, table, part)
 	if err != nil {
-		return table_info{BackupStatus: "bad"}, err
+		return tableInfo{BackupStatus: "bad"}, err
 	}
 	r, err := ch.GetFNames(db, table, part)
 	if err != nil {
-		return table_info{BackupStatus: "bad"}, err
+		return tableInfo{BackupStatus: "bad"}, err
 	}
-	ti := table_info{
+	ti := tableInfo{
 		DbDir:        r[0],
 		TableDir:     r[1],
 		Partitions:   parts,
-		Files:        map[string]file_info{},
+		Files:        map[string]fileInfo{},
 		BackupStatus: "bad",
 	}
 	mf, err := backupMeta(db, table, ti.DbDir, ti.TableDir)
@@ -209,25 +215,25 @@ func backupTable(db, table, part string) (table_info, error) {
 	}
 	err = ch.FreezeTable(db, table, part)
 	if err != nil {
-		return table_info{BackupStatus: "bad"}, err
+		return tableInfo{BackupStatus: "bad"}, err
 	}
 	time.Sleep(time.Second * 5) /// Clickhouse after freeze need some time
 	c.ShadowDirIncr, err = ch.GetIncrement()
 	if err != nil {
-		return table_info{BackupStatus: "bad"}, err
+		return tableInfo{BackupStatus: "bad"}, err
 	}
 	defer RemoveShadowDirs()
 	ti.Dirs = GetDirsInShadow(ti.DbDir, ti.TableDir)
-	var wp_task workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
+	var wpTask workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
 		return BackupRun(field)
 	}
 
-	wp := workerpool.MakeWorkerPool(wp_task, 8, 3, 10)
+	wp := workerpool.MakeWorkerPool(wpTask, 8, 3, 10)
 	wp.Start()
-	go FindFiles(wp.Get_Jobs_Chan())
+	go FindFiles(wp.GetJobsChan())
 
-	for job := range wp.Get_Results_Chan() {
+	for job := range wp.GetResultsChan() {
 		j, _ := job.(transport.CliFile)
 		ti.AddJob(&j)
 	}
@@ -236,54 +242,54 @@ func backupTable(db, table, part string) (table_info, error) {
 }
 
 func getBackupObjects() (map[string][]string, error) {
-	backup_objects := map[string][]string{}
+	backupObjects := map[string][]string{}
 	c := config.New()
-	backup_filter := c.BackupFilter
+	backupFilter := c.BackupFilter
 	ch := database.New()
-	C_DBS, err := ch.GetDBS()
+	currentDBS, err := ch.GetDBS()
 	if err != nil {
 		return nil, err
 	}
-	for _, db := range C_DBS {
+	for _, db := range currentDBS {
 		if db == "system" {
 			continue
 		}
-		C_Tables, err := ch.GetTables(db)
+		currentTables, err := ch.GetTables(db)
 		if err != nil {
 			return nil, err
 		}
 		//clone slice
-		backup_objects[db] = append(C_Tables[:0:0], C_Tables...)
+		backupObjects[db] = append(currentTables[:0:0], currentTables...)
 	}
-	if backup_filter == nil {
-		return backup_objects, nil
+	if backupFilter == nil {
+		return backupObjects, nil
 	}
-	for db, tables := range backup_filter {
+	for db, tables := range backupFilter {
 		for _, table := range tables {
-			if !Contains(backup_objects[db], table) {
+			if !Contains(backupObjects[db], table) {
 				return nil, errors.New("Bad filter, not contains in database")
 			}
 		}
 	}
 	if c.TaskArgs.BackupType == "part" {
-		if len(backup_filter) != 1 {
-			return backup_filter, errors.New("Bad backup filter for parted mode, set only one db.table")
+		if len(backupFilter) != 1 {
+			return backupFilter, errors.New("Bad backup filter for parted mode, set only one db.table")
 		}
-		for _, tables := range backup_filter {
+		for _, tables := range backupFilter {
 			if len(tables) != 1 {
-				return backup_filter, errors.New("Bad backup filter for parted mode, set only one db.table")
+				return backupFilter, errors.New("Bad backup filter for parted mode, set only one db.table")
 			}
 		}
 	}
-	return backup_filter, nil
+	return backupFilter, nil
 }
 
-func BackupInfoWrite(bi *backup_info) error {
+func BackupInfoWrite(bi *backupInfo) error {
 	c := config.New()
-	byte, err := json.MarshalIndent(bi, "", "  ")
+	prepareBytes, err := json.MarshalIndent(bi, "", "  ")
 	if err != nil {
 		if c.TaskArgs.Debug {
-			log.Println("Marshal: %v", err)
+			log.Printf("Marshal: %v", err)
 		}
 		return err
 	}
@@ -296,11 +302,12 @@ func BackupInfoWrite(bi *backup_info) error {
 	}
 	for _, s := range []string{".copy", ""} {
 		for {
-			mf.Content.Write(byte)
+			mf.Content.Write(prepareBytes)
 			mf.Name = "backup.json" + s
 			err = transport.WriteMeta(&mf)
 			if err != nil {
 				log.Println("Error write metafile ", mf.Path)
+				time.Sleep(time.Second * 5)
 				continue
 			}
 			break

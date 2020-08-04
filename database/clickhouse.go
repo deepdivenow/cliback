@@ -3,6 +3,7 @@ package database
 import (
 	"cliback/config"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"io/ioutil"
@@ -84,7 +85,10 @@ func (ch *ChDb) ReConnect() error {
 			} else {
 				log.Println(err)
 			}
-			ch.Close()
+			err = ch.Close()
+			if err != nil {
+				log.Printf("Database error: %s", err)
+			}
 		}
 	}
 	connect, err := sql.Open("clickhouse", ch.dsn)
@@ -113,7 +117,6 @@ func (ch *ChDb) ReConnectLoop() error {
 		}
 		return nil
 	}
-	return nil
 }
 
 func (ch *ChDb) Execute(q string) (sql.Result, error) {
@@ -142,10 +145,10 @@ func (ch *ChDb) GetDBS() ([]string, error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var db_name string
-		err := rows.Scan(&db_name)
+		var dbName string
+		err := rows.Scan(&dbName)
 		if err == nil {
-			result = append(result, db_name)
+			result = append(result, dbName)
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -209,19 +212,22 @@ func (ch *ChDb) GetFNames(db, table, part string) ([2]string, error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var path string
-		if err := rows.Scan(&path); err == nil {
-			result = append(result, path)
+		var tablePath string
+		if err := rows.Scan(&tablePath); err == nil {
+			result = append(result, tablePath)
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return [2]string{}, err
 	}
-	f_path := result[0]
-	if f_path[len(f_path)-1] == '/' {
-		f_path = f_path[:len(f_path)-1]
+	if len(result) == 0 {
+		return [2]string{}, errors.New("Not found path for db.table")
 	}
-	dirs := strings.Split(f_path, "/")
+	filePath := result[0]
+	if filePath[len(filePath)-1] == '/' {
+		filePath = filePath[:len(filePath)-1]
+	}
+	dirs := strings.Split(filePath, "/")
 	length := len(dirs)
 	return [2]string{dirs[length-3], dirs[length-2]}, nil
 }
@@ -234,9 +240,9 @@ func (ch *ChDb) GetDisks() (map[string]string, error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var disk, path string
-		if err := rows.Scan(&disk, &path); err == nil {
-			result[disk] = path
+		var disk, dbPath string
+		if err := rows.Scan(&disk, &dbPath); err == nil {
+			result[disk] = dbPath
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -248,7 +254,7 @@ func (ch *ChDb) FreezeTable(db, table, part string) error {
 	var query string
 	if part == "" {
 		query = fmt.Sprintf("ALTER TABLE `%s`.`%s` FREEZE", db, table)
-	} else if re_match, _ := regexp.MatchString("^(\\d+)$", part); re_match {
+	} else if reMatch, _ := regexp.MatchString("^(\\d+)$", part); reMatch {
 		query = fmt.Sprintf("ALTER TABLE `%s`.`%s` FREEZE PARTITION %s", db, table, part)
 	} else {
 		query = fmt.Sprintf("ALTER TABLE `%s`.`%s` FREEZE PARTITION '%s'", db, table, part)
@@ -297,23 +303,23 @@ func ReplaceCutReplicatedTable(meta string) string {
 	if !re.MatchString(meta) {
 		return meta
 	}
-	engine_label_pos := re.FindStringIndex(meta)
-	end_strings := []string{"PARTITION BY", "ORDER BY", "SETTINGS", "PRIMARY KEY", "SAMPLE BY", "TTL"}
-	end_pos := -1
-	for _, es := range end_strings {
+	engineLabelPos := re.FindStringIndex(meta)
+	endStrings := []string{"PARTITION BY", "ORDER BY", "SETTINGS", "PRIMARY KEY", "SAMPLE BY", "TTL"}
+	endPos := -1
+	for _, es := range endStrings {
 		ep := strings.Index(meta, es)
 		if ep >= 0 {
-			if end_pos == -1 || ep < end_pos {
-				end_pos = ep
+			if endPos == -1 || ep < endPos {
+				endPos = ep
 			}
 		}
 	}
-	if end_pos < 0 {
-		args := strings.Split(meta[engine_label_pos[1]:], ", ")
-		args_str := "(" + strings.Join(args[2:], ",")
-		return meta[:engine_label_pos[0]] + "ENGINE = MergeTree" + args_str
+	if endPos < 0 {
+		args := strings.Split(meta[engineLabelPos[1]:], ", ")
+		argsStr := "(" + strings.Join(args[2:], ",")
+		return meta[:engineLabelPos[0]] + "ENGINE = MergeTree" + argsStr
 	}
-	return meta[:engine_label_pos[0]] + "ENGINE = MergeTree()\n " + meta[end_pos:]
+	return meta[:engineLabelPos[0]] + "ENGINE = MergeTree()\n " + meta[endPos:]
 }
 func (ch *ChDb) CreateTable(db, table, meta string) error {
 	meta = ReplaceAttachToCreateTable(db, table, meta)
@@ -326,7 +332,7 @@ func (ch *ChDb) CreateTable(db, table, meta string) error {
 }
 func (ch *ChDb) ShowCreateTable(db, table string) (string, error) {
 	query := fmt.Sprintf("SHOW CREATE TABLE `%s`.`%s`", db, table)
-	log.Printf("Get Table Meta: %s.%s", db, table)
+	log.Printf("Get Table Meta: `%s`.`%s`", db, table)
 	var result []string
 	rows, err := ch.Query(query)
 	if err != nil {
@@ -342,11 +348,14 @@ func (ch *ChDb) ShowCreateTable(db, table string) (string, error) {
 	if err := rows.Err(); err != nil {
 		return "", err
 	}
+	if len(result) == 0 {
+		return "", errors.New("Execute show create table return nil")
+	}
 	return result[0], nil
 }
 func isInteregerPart(part string) bool {
-	re_match, _ := regexp.MatchString("^\\d+$", part)
-	return re_match
+	reMatch, _ := regexp.MatchString("^\\d+$", part)
+	return reMatch
 }
 
 func (ch *ChDb) AttachPartition(db, table, part string) error {
