@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -19,10 +20,19 @@ func MakeSshClientConfig(c map[string]string) ssh.ClientConfig {
 	}
 	var pkeyPaths []string
 	if pkeyPath, ok := c["public_key"]; ok {
-		pkeyPaths = append(pkeyPaths, pkeyPath)
+		if len(pkeyPath) > 0 {
+			pkeyPaths = append(pkeyPaths, pkeyPath)
+		}
 	}
-	pkeyPaths = append(pkeyPaths, "~/.ssh/id_rsa")
-	pkeyPaths = append(pkeyPaths, "~/.ssh/id_sda")
+	homePath, exists := os.LookupEnv("HOME")
+	if exists {
+		for _,p := range []string{path.Join(homePath,".ssh/id_rsa"),path.Join(homePath,".ssh/id_sda")} {
+			fi,err:=os.Stat(p)
+			if err == nil && !fi.IsDir(){
+				pkeyPaths = append(pkeyPaths, p)
+			}
+		}
+	}
 	for _, pkeyPath := range pkeyPaths {
 		if pkey, err := publicKey(pkeyPath); err == nil {
 			sshAuth = append(sshAuth, pkey)
