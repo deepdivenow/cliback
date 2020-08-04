@@ -36,6 +36,7 @@ type transport struct {
 	Stater  [2]Stater
 	Flusher []Flusher
 	Ready   bool
+	Closed  bool
 }
 
 func (t *transport) Flush() error {
@@ -46,9 +47,13 @@ func (t *transport) Flush() error {
 }
 
 func (t *transport) Close() error {
+	if t.Closed {
+		return nil
+	}
 	for i := len(t.Closer) - 1; i >= 0; i-- {
 		_ = t.Closer[i].Close()
 	}
+	t.Closed=true
 	return nil
 }
 

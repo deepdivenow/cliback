@@ -80,31 +80,52 @@ func CheckForReference(cf transport.CliFile) transport.CliFile {
 /// This Job Running in Worker Pool
 func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
 	c := config.New()
-	if c.TaskArgs.BackupType == "diff" ||
-		c.TaskArgs.BackupType == "incr" {
-		err := cf.Sha1Compute()
+	for {
+		if c.TaskArgs.BackupType == "diff" ||
+			c.TaskArgs.BackupType == "incr" {
+			err := cf.Sha1Compute()
+			if err != nil {
+				if err == os.ErrNotExist {
+					log.Printf("File not Exists %s %s", err, cf.BackupSrc())
+					s := status.New()
+					s.SetStatus(status.FailBackupFile)
+					return cf, err
+				}
+				log.Printf("Error open shadow file %s Retry. Err: %v", cf.BackupSrc(), err)
+				time.Sleep(time.Second * 5)
+				continue
+			}
+			cf = CheckForReference(cf)
+			if len(cf.Reference) > 0 {
+				return cf, nil
+			}
+		}
+		tr, err := transport.MakeTransport(cf)
 		if err != nil {
-			return cf, err
+			if err == os.ErrNotExist {
+				log.Printf("File not Exists %s %s", err, cf.BackupSrc())
+				s := status.New()
+				s.SetStatus(status.FailBackupFile)
+				return cf, err
+			}
+			log.Printf("Error open shadow file %s Retry. Err: %v", cf.BackupSrc(), err)
+			time.Sleep(time.Second * 5)
+			continue
 		}
-		cf = CheckForReference(cf)
-		if len(cf.Reference) > 0 {
-			return cf, nil
+		defer tr.Close()
+		_, err = tr.Copy()
+		// Add copied check
+		if err != nil {
+			log.Printf("Error cp file %s,%s, retry", cf.BackupSrc(), cf.Archive())
+			time.Sleep(time.Second * 5)
+			tr.Close()
+			continue
 		}
+		cf.Sha1 = hex.EncodeToString(tr.Sha1Sum.Sum(nil))
+		cf.Size = tr.Size
+		cf.BSize = tr.BSize
+		return cf, nil
 	}
-	tr, err := transport.MakeTransport(cf)
-	if err != nil {
-		return transport.CliFile{}, err
-	}
-	defer tr.Close()
-	_, err = tr.Copy()
-	// Add copied check
-	if err != nil {
-		return transport.CliFile{}, err
-	}
-	cf.Sha1 = hex.EncodeToString(tr.Sha1Sum.Sum(nil))
-	cf.Size = tr.Size
-	cf.BSize = tr.BSize
-	return cf, nil
 }
 
 func Backup() error {

@@ -195,23 +195,24 @@ func RestoreFiles(ti *tableInfo, jobsChan chan<- workerpool.TaskElem) {
 func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
 	for {
 		tr, err := transport.MakeTransport(cf)
-		defer tr.Close()
 		if err != nil {
 			if err == os.ErrNotExist {
-				log.Printf("%s %s", err, cf.Archive())
+				log.Printf("File not Exists %s %s", err, cf.Archive())
 				s := status.New()
 				s.SetStatus(status.FailRestoreFile)
 				return cf, err
 			}
-			log.Printf("Error open storage file %s, retry", cf.Archive())
+			log.Printf("Error open storage file %s Retry. Err: %v", cf.Archive(), err)
 			time.Sleep(time.Second * 5)
 			continue
 		}
+		defer tr.Close()
 		_, err = tr.Copy()
 		// Add copied check
 		if err != nil {
 			log.Printf("Error cp file %s,%s, retry", cf.Archive(), cf.RestoreDest())
 			time.Sleep(time.Second * 5)
+			tr.Close()
 			continue
 		}
 		restoredSha1 := hex.EncodeToString(tr.Sha1Sum.Sum(nil))
