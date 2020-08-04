@@ -129,7 +129,7 @@ func Backup() error {
 		Version:      1,
 		BackupFilter: backupObjects,
 		StartDate:    GetFormatedTime(),
-		DBS:          make(map[string]databaseInfo),
+		DBS:          map[string]databaseInfo{},
 	}
 	if c.TaskArgs.BackupType == "diff" ||
 		c.TaskArgs.BackupType == "incr" {
@@ -143,8 +143,8 @@ func Backup() error {
 	for db, tables := range backupObjects {
 		c.TaskArgs.DBNow = db
 		di := databaseInfo{
-			Tables:   make(map[string]tableInfo),
-			MetaData: nil,
+			Tables:   map[string]tableInfo{},
+			MetaData: map[string]fileInfo{},
 		}
 		for _, table := range tables {
 			log.Printf("Backup table: `%s`.`%s`", db, table)
@@ -156,6 +156,8 @@ func Backup() error {
 				ti, _ = backupTable(db, table, "")
 			}
 			di.Tables[table] = ti
+			// Added for backward compatibility
+			di.MetaData[table] = ti.MetaData
 			di.Add(&ti)
 		}
 		bi.DBS[db] = di

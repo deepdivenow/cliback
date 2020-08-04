@@ -87,7 +87,7 @@ func Restorev1(bi *backupInfo) error {
 			if len(tableInfo.TableDir) < 1 {
 				tableInfo.TableDir = table
 			}
-			mi := bi.DBS[db].MetaData[table]
+			mi := bi.DBS[db].Tables[table].MetaData
 			mf := transport.MetaFile{
 				Name:     tableInfo.TableDir + ".sql",
 				Path:     tableInfo.DbDir,

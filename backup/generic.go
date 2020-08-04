@@ -98,6 +98,7 @@ type tableInfo struct {
 	Partitions   []string            `json:"partitions"`
 	Dirs         []string            `json:"dirs"`
 	Files        map[string]fileInfo `json:"files"`
+	// Will be Used in v2
 	MetaData     fileInfo            `json:"metadata"`
 	Reference    []string            `json:"reference,omitempty"`
 }
