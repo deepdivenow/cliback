@@ -89,7 +89,7 @@ func WriteMetaLocal(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
 	source := bufio.NewReader(&mf.Content)
-	destFile:=path.Join(c.BackupStorage.BackupDir, mf.Archive())
+	destFile := path.Join(c.BackupStorage.BackupDir, mf.Archive())
 	err := MakeDirsRecurse(path.Dir(destFile))
 	if err != nil {
 		return err

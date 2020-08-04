@@ -3,6 +3,7 @@ package backup
 import (
 	"cliback/config"
 	"cliback/database"
+	"cliback/status"
 	"cliback/transport"
 	"cliback/workerpool"
 	"encoding/hex"
@@ -51,6 +52,8 @@ func FindFiles(jobsChan chan<- workerpool.TaskElem) {
 			})
 		if err != nil {
 			log.Println(err)
+			s := status.New()
+			s.SetStatus(status.FailBackupTable)
 		}
 	}
 	close(jobsChan)
@@ -214,14 +217,21 @@ func backupTable(db, table, part string) (tableInfo, error) {
 		ti.MetaData.Sha1 = mf.Sha1
 		ti.MetaData.Size = mf.Size
 		ti.MetaData.BSize = mf.BSize
+	} else {
+		s := status.New()
+		s.SetStatus(status.FailBackupMeta)
 	}
 	err = ch.FreezeTable(db, table, part)
 	if err != nil {
+		s := status.New()
+		s.SetStatus(status.FailFreezeTable)
 		return tableInfo{BackupStatus: "bad"}, err
 	}
 	time.Sleep(time.Second * 5) /// Clickhouse after freeze need some time
 	c.ShadowDirIncr, err = ch.GetIncrement()
 	if err != nil {
+		s := status.New()
+		s.SetStatus(status.FailGetIncrement)
 		return tableInfo{BackupStatus: "bad"}, err
 	}
 	defer RemoveShadowDirs()
@@ -250,6 +260,8 @@ func getBackupObjects() (map[string][]string, error) {
 	ch := database.New()
 	currentDBS, err := ch.GetDBS()
 	if err != nil {
+		s := status.New()
+		s.SetStatus(status.FailGetDBS)
 		return nil, err
 	}
 	for _, db := range currentDBS {
@@ -258,6 +270,8 @@ func getBackupObjects() (map[string][]string, error) {
 		}
 		currentTables, err := ch.GetTables(db)
 		if err != nil {
+			s := status.New()
+			s.SetStatus(status.FailGetTables)
 			return nil, err
 		}
 		//clone slice
@@ -293,6 +307,8 @@ func BackupInfoWrite(bi *backupInfo) error {
 		if c.TaskArgs.Debug {
 			log.Printf("Marshal: %v", err)
 		}
+		s := status.New()
+		s.SetStatus(status.FailBackupMeta)
 		return err
 	}
 	mf := transport.MetaFile{

@@ -20,6 +20,6 @@ clickhouse_restore_opts:
 #  default: '/var/lib/clickhouse'
 #  sata: '/ssd/clickhouse'
 #  ssd: '/sata/clickhouse'
-#backup_filter:
-#  default:
-#    - ontime2
+backup_filter:
+  default:
+    - ontime

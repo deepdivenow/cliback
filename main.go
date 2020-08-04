@@ -3,9 +3,11 @@ package main
 import (
 	"cliback/backup"
 	"cliback/config"
+	"cliback/status"
 	"errors"
 	"flag"
 	"log"
+	"os"
 )
 
 type MainArgs struct {
@@ -72,12 +74,15 @@ func main() {
 		flag.Usage()
 		log.Fatalf("Exit by error on parse cmd args")
 	}
+	s := status.New()
 	c := config.New()
 	err = c.Read(cargs.configFile)
 	if err != nil {
+		s.SetStatus(status.FailReadConfig)
 		println(err)
 		flag.Usage()
-		log.Fatalf("Please check config file")
+		log.Println("Please check config file")
+		os.Exit(s.GetFinalStatus())
 	}
 
 	c.TaskArgs.JobName = cargs.jobId
@@ -90,17 +95,27 @@ func main() {
 	if cargs.infoMode {
 		c.TaskArgs.JobType = config.Info
 		err = backup.Info()
+		if err != nil {
+			s.SetStatus(status.FailInfo)
+		}
 	} else if cargs.backupMode {
 		c.TaskArgs.JobType = config.Backup
 		err = backup.Backup()
+		if err != nil {
+			s.SetStatus(status.FailBackup)
+		}
 	} else if cargs.restoreMode {
 		c.TaskArgs.JobType = config.Restore
 		err = backup.Restore()
+		if err != nil {
+			s.SetStatus(status.FailRestore)
+		}
 	} else {
 		log.Fatalf("Bad programm Running mode")
 	}
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
-	log.Println("Exit")
+	log.Printf("Exit %d", s.GetFinalStatus())
+	os.Exit(s.GetFinalStatus())
 }

@@ -3,6 +3,7 @@ package backup
 import (
 	"cliback/config"
 	"cliback/database"
+	"cliback/status"
 	"cliback/transport"
 	"cliback/workerpool"
 	"encoding/hex"
@@ -51,6 +52,8 @@ func Restore() error {
 	c := config.New()
 	bi, err := GetMetaForRestore()
 	if err != nil {
+		s := status.New()
+		s.SetStatus(status.FailRestoreMeta)
 		return err
 	}
 	log.Printf("Restore Job Name: %s", c.TaskArgs.JobName)
@@ -60,6 +63,8 @@ func Restore() error {
 	defer ch.Close()
 	err = CheckStorage()
 	if err != nil {
+		s := status.New()
+		s.SetStatus(status.FailClickhouseStorage)
 		return err
 	}
 	switch bi.Version {
@@ -78,6 +83,8 @@ func Restorev1(bi *backupInfo) error {
 	for db, dbInfo := range bi.DBS {
 		err := ch.CreateDatabase(db)
 		if err != nil {
+			s := status.New()
+			s.SetStatus(status.FailRestoreDatabase)
 			log.Printf("Create database error: %v", err)
 		}
 		for table, tableInfo := range dbInfo.Tables {
@@ -97,23 +104,33 @@ func Restorev1(bi *backupInfo) error {
 			}
 			err := transport.ReadMeta(&mf)
 			if err != nil {
+				s := status.New()
+				s.SetStatus(status.FailRestoreMeta)
 				log.Println(err)
 			}
 			if mi.Sha1 != mf.Sha1 {
+				s := status.New()
+				s.SetStatus(status.FailRestoreMeta)
 				log.Printf("Backup Info SHA1: %s not eq Restored file SHA1: %s", mi.Sha1, mf.Sha1)
 			}
 			err = ch.CreateTable(db, table, mf.Content.String())
 			if err != nil {
+				s := status.New()
+				s.SetStatus(status.FailRestoreTable)
 				log.Println(err)
 			}
 			err = restoreTable(&tableInfo)
 			if err != nil {
+				s := status.New()
+				s.SetStatus(status.FailRestoreTable)
 				log.Println(err)
 			}
 			if len(tableInfo.Partitions) == 1 && tableInfo.Partitions[0] == "tuple()" {
 				for _, dir := range tableInfo.Dirs {
 					err = ch.AttachPartitionByDir(db, table, dir)
 					if err != nil {
+						s := status.New()
+						s.SetStatus(status.FailRestorePartition)
 						log.Printf("Error Attach dir `%s`.`%s`.%s", db, table, dir)
 					}
 				}
@@ -121,6 +138,8 @@ func Restorev1(bi *backupInfo) error {
 				for _, part := range tableInfo.Partitions {
 					err = ch.AttachPartition(db, table, part)
 					if err != nil {
+						s := status.New()
+						s.SetStatus(status.FailRestorePartition)
 						log.Printf("Error Attach partition `%s`.`%s`.%s", db, table, part)
 					}
 				}
@@ -180,6 +199,8 @@ func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
 		if err != nil {
 			if err == os.ErrNotExist {
 				log.Printf("%s %s", err, cf.Archive())
+				s := status.New()
+				s.SetStatus(status.FailRestoreFile)
 				return cf, err
 			}
 			log.Printf("Error open storage file %s, retry", cf.Archive())
@@ -195,6 +216,8 @@ func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
 		}
 		restoredSha1 := hex.EncodeToString(tr.Sha1Sum.Sum(nil))
 		if restoredSha1 != cf.Sha1 {
+			s := status.New()
+			s.SetStatus(status.FailRestoreFile)
 			log.Printf("File %s sha1 failed %s/%s", cf.RestoreDest(), cf.Sha1, restoredSha1)
 		}
 		return cf, nil

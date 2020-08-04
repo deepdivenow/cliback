@@ -98,8 +98,7 @@ type tableInfo struct {
 	Partitions   []string            `json:"partitions"`
 	Dirs         []string            `json:"dirs"`
 	Files        map[string]fileInfo `json:"files"`
-	// Will be Used in v2
-	MetaData     fileInfo            `json:"metadata"`
+	MetaData     fileInfo            `json:"metadata"` // Will be Used in v2
 	Reference    []string            `json:"reference,omitempty"`
 }
 type databaseInfo struct {
