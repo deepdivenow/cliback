@@ -302,6 +302,13 @@ func getBackupObjects() (map[string][]string, error) {
 		return backupObjects, nil
 	}
 	for db, tables := range backupFilter {
+		if _, ok := backupObjects[db]; !ok {
+			return nil, errors.New("Bad filter, not contains in database")
+		}
+		if tables == nil {
+			backupFilter[db] = backupObjects[db]
+			continue
+		}
 		for _, table := range tables {
 			if !Contains(backupObjects[db], table) {
 				return nil, errors.New("Bad filter, not contains in database")
