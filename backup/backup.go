@@ -262,7 +262,7 @@ func backupTable(db, table, part string) (tableInfo, error) {
 		return BackupRun(field)
 	}
 
-	wp := workerpool.MakeWorkerPool(wpTask, 8, 3, 10)
+	wp := workerpool.MakeWorkerPool(wpTask, c.WorkerPool.NumWorkers, c.WorkerPool.NumRetry, c.WorkerPool.ChanLen)
 	wp.Start()
 	go FindFiles(wp.GetJobsChan())
 

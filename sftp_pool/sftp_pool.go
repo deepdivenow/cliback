@@ -34,9 +34,9 @@ type SftpPool struct {
 
 func New() *SftpPool {
 	once.Do(func() {
+		c:=config.New()
 		sftpPoolInstance = new(SftpPool)
-		sftpPoolInstance.maxConn = 10
-		c := config.New()
+		sftpPoolInstance.maxConn = c.WorkerPool.NumWorkers+2
 		sftpPoolInstance.sshConfig = make(map[string]string)
 		sftpPoolInstance.sshConfig["remote"] = c.BackupStorage.BackupConn.HostName
 		sftpPoolInstance.sshConfig["port"] = strconv.FormatUint(uint64(c.BackupStorage.BackupConn.Port), 10)

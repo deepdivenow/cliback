@@ -92,6 +92,9 @@ func main() {
 	} else {
 		c.TaskArgs.BackupType = "full"
 	}
+	if c.WorkerPool.NumWorkers < 1 {
+		c.WorkerPool.NumWorkers = 4
+	}
 	if cargs.infoMode {
 		c.TaskArgs.JobType = config.Info
 		err = backup.Info()

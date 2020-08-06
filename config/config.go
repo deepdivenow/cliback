@@ -46,6 +46,12 @@ type ChMetaOpts struct {
 	CutReplicated bool `yaml:"replace_replicated_to_default"`
 }
 
+type WorkerPoolT struct {
+	NumWorkers int `yaml:"num_workers"`
+	NumRetry   int `yaml:"num_retry"`
+	ChanLen    int `yaml:"chan_len"`
+}
+
 type config struct {
 	BackupStorage         backupStorage       `yaml:"backup_storage"`
 	ShadowDirIncr         int                 `yaml:"-"`
@@ -55,6 +61,7 @@ type config struct {
 	ClickhouseRestoreOpts ChMetaOpts          `yaml:"clickhouse_restore_opts"`
 	ClickhouseStorage     map[string]string   `yaml:"clickhouse_storage"`
 	BackupFilter          map[string][]string `yaml:"backup_filter"`
+	WorkerPool            WorkerPoolT         `yaml:"worker_pool"`
 }
 
 var (

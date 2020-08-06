@@ -160,11 +160,12 @@ func getRestoreObjects() (map[string][]string, error) {
 }
 
 func restoreTable(ti *tableInfo) error {
+	c:=config.New()
 	var wpTask workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
 		return RestoreRun(field)
 	}
-	wp := workerpool.MakeWorkerPool(wpTask, 8, 3, 10)
+	wp := workerpool.MakeWorkerPool(wpTask, c.WorkerPool.NumWorkers, c.WorkerPool.NumRetry, c.WorkerPool.ChanLen)
 	wp.Start()
 	go RestoreFiles(ti, wp.GetJobsChan())
 	for job := range wp.GetResultsChan() {
