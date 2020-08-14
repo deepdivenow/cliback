@@ -17,10 +17,15 @@ var (
 	sftpPoolInstance *SftpPool
 )
 
+const (
+	maxConnDuration = 300 * time.Second
+)
+
 type SftpConn struct {
-	sshCli  *ssh.Client
-	sftpCli *sftp.Client
-	inUse   *bool
+	sshCli    *ssh.Client
+	sftpCli   *sftp.Client
+	inUse     *bool
+	startTime time.Time
 }
 
 type SftpPool struct {
@@ -34,9 +39,9 @@ type SftpPool struct {
 
 func New() *SftpPool {
 	once.Do(func() {
-		c:=config.New()
+		c := config.New()
 		sftpPoolInstance = new(SftpPool)
-		sftpPoolInstance.maxConn = c.WorkerPool.NumWorkers+2
+		sftpPoolInstance.maxConn = c.WorkerPool.NumWorkers + 2
 		sftpPoolInstance.sshConfig = make(map[string]string)
 		sftpPoolInstance.sshConfig["remote"] = c.BackupStorage.BackupConn.HostName
 		sftpPoolInstance.sshConfig["port"] = strconv.FormatUint(uint64(c.BackupStorage.BackupConn.Port), 10)
@@ -82,9 +87,10 @@ func (sp *SftpPool) GetClient() (*sftp.Client, error) {
 	bt := new(bool)
 	*bt = true
 	sp.pool.PushBack(SftpConn{
-		sshCli:  sshCli,
-		sftpCli: sftpCli,
-		inUse:   bt,
+		sshCli:    sshCli,
+		sftpCli:   sftpCli,
+		inUse:     bt,
+		startTime: time.Now(),
 	})
 	sp.connInUse++
 	sp.connOpened++
@@ -112,6 +118,7 @@ func (sp *SftpPool) CheckConnection(sftpClient *sftp.Client) error {
 func (sp *SftpPool) RemoveConnection(e *list.Element) error {
 	p := e.Value.(SftpConn)
 	sp.connOpened--
+	sp.connInUse--
 	p.sftpCli.Close()
 	p.sshCli.Close()
 	sp.pool.Remove(e)
@@ -119,18 +126,22 @@ func (sp *SftpPool) RemoveConnection(e *list.Element) error {
 }
 
 func (sp *SftpPool) ReleaseClient(sftpClient *sftp.Client) error {
-	sp.mux.Lock()
-	defer sp.mux.Unlock()
 	for e := sp.pool.Front(); e != nil; e = e.Next() {
 		p := e.Value.(SftpConn)
 		if p.sftpCli == sftpClient {
+			connStatus := sp.CheckConnection(sftpClient)
+			//var connStatus error = nil
+			if connStatus != nil ||
+				time.Now().Sub(p.startTime.Add(maxConnDuration)) > 0 {
+				sp.mux.Lock()
+				defer sp.mux.Unlock()
+				sp.RemoveConnection(e)
+				return nil
+			}
+			sp.mux.Lock()
+			defer sp.mux.Unlock()
 			*p.inUse = false
 			sp.connInUse--
-			err := sp.CheckConnection(sftpClient)
-			if err != nil {
-				sp.RemoveConnection(e)
-			}
-			// Check connection
 			return nil
 		}
 	}
