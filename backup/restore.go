@@ -6,7 +6,6 @@ import (
 	"cliback/status"
 	"cliback/transport"
 	"cliback/workerpool"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log"
@@ -80,6 +79,7 @@ func Restore() error {
 func Restorev1(bi *backupInfo) error {
 	ch := database.New()
 	c := config.New()
+	log.Print("Restore backup: \n"+bi.String())
 	for db, dbInfo := range bi.DBS {
 		err := ch.CreateDatabase(db)
 		if err != nil {
@@ -207,16 +207,16 @@ func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
 			time.Sleep(time.Second * 5)
 			continue
 		}
-		defer tr.Close()
-		_, err = tr.Copy()
+		//defer tr.Close()
+		//_, err = tr.Copy()
 		// Add copied check
 		if err != nil {
 			log.Printf("Error cp file %s,%s, retry", cf.Archive(), cf.RestoreDest())
 			time.Sleep(time.Second * 5)
-			tr.Close()
+			//tr.Close()
 			continue
 		}
-		restoredSha1 := hex.EncodeToString(tr.Sha1Sum.Sum(nil))
+		restoredSha1 := tr.Sha1Sum
 		if restoredSha1 != cf.Sha1 {
 			s := status.New()
 			s.SetStatus(status.FailRestoreFile)

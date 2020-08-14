@@ -6,7 +6,6 @@ import (
 	"cliback/status"
 	"cliback/transport"
 	"cliback/workerpool"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log"
@@ -112,16 +111,7 @@ func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
 			time.Sleep(time.Second * 5)
 			continue
 		}
-		defer tr.Close()
-		_, err = tr.Copy()
-		// Add copied check
-		if err != nil {
-			log.Printf("Error cp file %s,%s, retry", cf.BackupSrc(), cf.Archive())
-			time.Sleep(time.Second * 5)
-			tr.Close()
-			continue
-		}
-		cf.Sha1 = hex.EncodeToString(tr.Sha1Sum.Sum(nil))
+		cf.Sha1 = tr.Sha1Sum
 		cf.Size = tr.Size
 		cf.BSize = tr.BSize
 		return cf, nil
@@ -192,6 +182,7 @@ func Backup() error {
 			log.Printf("Write backup info error: %v", err)
 		}
 	}
+	log.Print("Backup info:\n"+bi.String())
 	return nil
 }
 
@@ -248,7 +239,7 @@ func backupTable(db, table, part string) (tableInfo, error) {
 		s.SetStatus(status.FailFreezeTable)
 		return tableInfo{BackupStatus: "bad"}, err
 	}
-	time.Sleep(time.Second * 5) /// Clickhouse after freeze need some time
+	time.Sleep(time.Second * 1) /// Clickhouse after freeze need some time
 	c.ShadowDirIncr, err = ch.GetIncrement()
 	if err != nil {
 		s := status.New()

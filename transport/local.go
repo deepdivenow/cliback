@@ -27,8 +27,7 @@ func MakeDirsRecurse(path string) error {
 func MakeBackupTransportLocal(file CliFile) (*transport, error) {
 	c := config.New()
 	t := new(transport)
-	defer t.Cleanup()
-	t.Sha1Sum = sha1.New()
+	Sha1Sum := sha1.New()
 	destFile := path.Join(c.BackupStorage.BackupDir, file.Archive())
 	err := MakeDirsRecurse(path.Dir(destFile))
 	if err != nil {
@@ -38,50 +37,68 @@ func MakeBackupTransportLocal(file CliFile) (*transport, error) {
 	if err != nil {
 		return nil, err
 	}
-	t.Closer = append(t.Closer, dest)
+	defer dest.Close()
 	source, err := os.Open(path.Join(file.BackupSrc()))
 	if err != nil {
 		return nil, err
 	}
-	t.Closer = append(t.Closer, source)
+	defer source.Close()
 	gzw := gzip.NewWriter(dest)
-	t.Closer = append(t.Closer, gzw)
-	mwr := io.MultiWriter(gzw, t.Sha1Sum)
-	t.Writer = mwr
-	t.Reader = source
-	t.Stater[0] = source
-	t.Stater[1] = dest
-	t.Flusher = append(t.Flusher, gzw)
-	t.Ready = true
+	defer gzw.Close()
+	mwr := io.MultiWriter(gzw, Sha1Sum)
+	_, err = io.Copy(mwr, source)
+	if err != nil {
+		return t, err
+	}
+	gzw.Flush()
+	s, err := source.Stat()
+	if err == nil {
+		t.Size = s.Size()
+	}
+	d, err := dest.Stat()
+	if err == nil {
+		t.BSize = d.Size()
+	}
+	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
 
 func MakeRestoreTransportLocal(file CliFile) (*transport, error) {
 	c := config.New()
 	t := new(transport)
-	defer t.Cleanup()
-	t.Sha1Sum = sha1.New()
-	source, err := os.Open(path.Join(c.BackupStorage.BackupDir, file.Archive()))
-	if err != nil {
-		return nil, err
-	}
-	t.Closer = append(t.Closer, source)
+	Sha1Sum := sha1.New()
 	dest, err := os.Create(file.RestoreDest())
 	if err != nil {
 		return nil, err
 	}
-	t.Closer = append(t.Closer, dest)
-	gzw, err := gzip.NewReader(source)
+	defer dest.Close()
+
+	source, err := os.Open(path.Join(c.BackupStorage.BackupDir, file.Archive()))
 	if err != nil {
 		return nil, err
 	}
-	t.Closer = append(t.Closer, gzw)
-	mwr := io.MultiWriter(t.Sha1Sum, dest)
-	t.Writer = mwr
-	t.Reader = gzw
-	t.Stater[1] = source
-	t.Stater[0] = dest
-	t.Ready = true
+	defer source.Close()
+
+	gzr, err := gzip.NewReader(source)
+	if err != nil {
+		return nil, err
+	}
+	defer gzr.Close()
+	mwr := io.MultiWriter(Sha1Sum, dest)
+
+	_, err = io.Copy(mwr, gzr)
+	if err != nil {
+		return t, err
+	}
+	s, err := source.Stat()
+	if err == nil {
+		t.BSize = s.Size()
+	}
+	d, err := dest.Stat()
+	if err == nil {
+		t.Size = d.Size()
+	}
+	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
 

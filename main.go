@@ -93,7 +93,7 @@ func main() {
 		c.TaskArgs.BackupType = "full"
 	}
 	if c.WorkerPool.NumWorkers < 1 {
-		c.WorkerPool.NumWorkers = 4
+		c.WorkerPool.NumWorkers = 8
 	}
 	if cargs.infoMode {
 		c.TaskArgs.JobType = config.Info

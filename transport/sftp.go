@@ -18,14 +18,13 @@ import (
 func MakeBackupTransportSFTP(file CliFile) (*transport, error) {
 	c := config.New()
 	t := new(transport)
-	defer t.Cleanup()
-	t.Sha1Sum = sha1.New()
+	Sha1Sum := sha1.New()
 	sp := sftp_pool.New()
 	sftpCli, err := sp.GetClientLoop()
 	if err != nil {
 		return t, err
 	}
-	t.Closer = append(t.Closer, sp.MakeReleaseCloser(sftpCli))
+	defer sp.ReleaseClient(sftpCli)
 	destFile := path.Join(c.BackupStorage.BackupDir, file.Archive())
 	err = sftpCli.MkdirAll(path.Dir(destFile))
 	if err != nil {
@@ -35,42 +34,45 @@ func MakeBackupTransportSFTP(file CliFile) (*transport, error) {
 	if err != nil {
 		return t, err
 	}
-	t.Closer = append(t.Closer, dest)
+	defer dest.Close()
 	source, err := os.Open(file.BackupSrc())
 	if err != nil {
 		return t, err
 	}
-	t.Closer = append(t.Closer, source)
-	gzw := gzip.NewWriter(dest)
-	t.Closer = append(t.Closer, gzw)
-	mwr := io.MultiWriter(gzw, t.Sha1Sum)
-	t.Writer = mwr
-	t.Reader = source
-	t.Stater[0] = source
-	t.Stater[1] = dest
-	t.Flusher = append(t.Flusher, gzw)
-	t.Ready = true
+	defer source.Close()
+
+	pr,pw:=io.Pipe()
+	gzw := gzip.NewWriter(pw)
+	mwr := io.MultiWriter(gzw, Sha1Sum)
+	go func() {
+		defer pw.Close()
+		defer gzw.Close()
+		io.Copy(mwr, source)
+		gzw.Flush()
+	}()
+	_, err = io.Copy(dest, pr)
+	if err != nil {
+		return t, err
+	}
+	s, err := source.Stat()
+	if err == nil {
+		t.Size = s.Size()
+	}
+	d, err := dest.Stat()
+		if err == nil {
+		t.BSize = d.Size()
+	}
+	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
 
 func MakeRestoreTransportSFTP(file CliFile) (*transport, error) {
 	c := config.New()
 	t := new(transport)
-	defer t.Cleanup()
-	t.Sha1Sum = sha1.New()
-	sp := sftp_pool.New()
-	sftpCli, err := sp.GetClientLoop()
-	if err != nil {
-		return t, err
-	}
-	t.Closer = append(t.Closer, sp.MakeReleaseCloser(sftpCli))
-	source, err := sftpCli.Open(path.Join(c.BackupStorage.BackupDir, file.Archive()))
-	if err != nil {
-		return t, err
-	}
-	t.Closer = append(t.Closer, source)
+	Sha1Sum := sha1.New()
+
 	destFile := path.Join(file.RestoreDest())
-	err = MakeDirsRecurse(path.Dir(destFile))
+	err := MakeDirsRecurse(path.Dir(destFile))
 	if err != nil {
 		return t, err
 	}
@@ -78,18 +80,39 @@ func MakeRestoreTransportSFTP(file CliFile) (*transport, error) {
 	if err != nil {
 		return t, err
 	}
-	t.Closer = append(t.Closer, dest)
+	defer dest.Close()
+
+	sp := sftp_pool.New()
+	sftpCli, err := sp.GetClientLoop()
+	if err != nil {
+		return t, err
+	}
+	defer sp.ReleaseClient(sftpCli)
+	source, err := sftpCli.Open(path.Join(c.BackupStorage.BackupDir, file.Archive()))
+	if err != nil {
+		return t, err
+	}
+	defer source.Close()
+
 	gzr, err := gzip.NewReader(source)
 	if err != nil {
 		return t, err
 	}
-	t.Closer = append(t.Closer, gzr)
-	mwr := io.MultiWriter(t.Sha1Sum, dest)
-	t.Writer = mwr
-	t.Reader = gzr
-	t.Stater[1] = source
-	t.Stater[0] = dest
-	t.Ready = true
+	defer gzr.Close()
+	mwr := io.MultiWriter(Sha1Sum, dest)
+	_, err = io.Copy(mwr, gzr)
+	if err != nil {
+		return t, err
+	}
+	s, err := source.Stat()
+	if err == nil {
+		t.BSize = s.Size()
+	}
+	d, err := dest.Stat()
+	if err == nil {
+		t.Size = d.Size()
+	}
+	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
 
