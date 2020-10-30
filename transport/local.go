@@ -67,6 +67,11 @@ func MakeRestoreTransportLocal(file CliFile) (*transport, error) {
 	c := config.New()
 	t := new(transport)
 	Sha1Sum := sha1.New()
+
+	err := MakeDirsRecurse(path.Dir(file.RestoreDest()))
+	if err != nil {
+		return t, err
+	}
 	dest, err := os.Create(file.RestoreDest())
 	if err != nil {
 		return nil, err
