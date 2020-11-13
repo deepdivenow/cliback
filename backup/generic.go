@@ -32,6 +32,11 @@ func (ti *tableInfo) Add(fi *fileInfo, fname string) {
 			ti.Reference = append(ti.Reference, fi.Reference)
 		}
 	}
+	if len(fi.Storage) > 0{
+		if !(Contains(ti.Storages,fi.Storage)){
+			ti.Storages=append(ti.Storages, fi.Storage)
+		}
+	}
 }
 
 func (ti *tableInfo) AddJob(j *transport.CliFile) {
@@ -100,6 +105,7 @@ type tableInfo struct {
 	Files        map[string]fileInfo `json:"files"`
 	MetaData     fileInfo            `json:"metadata"` // Will be Used in v2
 	Reference    []string            `json:"reference,omitempty"`
+	Storages     []string            `json:"storages,omitempty"`
 }
 type databaseInfo struct {
 	counter

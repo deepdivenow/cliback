@@ -5,7 +5,9 @@ import (
 	"cliback/config"
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 )
@@ -43,7 +45,19 @@ func (cf *CliFile) RestoreDest() string {
 	if len(cf.Storage) < 1 {
 		store = "default"
 	}
-	return path.Join(c.ClickhouseStorage[store], "data", cf.Path, "detached", cf.Name)
+	if storagePath,ok := c.ClickhouseStorage[store]; ok{
+		return path.Join(storagePath, "data", cf.Path, "detached", cf.Name)
+	}
+	if c.ClickhouseRestoreOpts.BadStorageToDefault {
+		store = "default"
+		if storagePath, ok := c.ClickhouseStorage[store]; ok {
+			return path.Join(storagePath, "data", cf.Path, "detached", cf.Name)
+		}
+	}
+	if c.ClickhouseRestoreOpts.FailIfStorageNotExists{
+		log.Fatal(fmt.Sprint("ERR: Bad storage: %s", store))
+	}
+	return ""
 }
 func (cf *CliFile) BackupSrc() string {
 	return path.Join(cf.Shadow, cf.Path, cf.Name)

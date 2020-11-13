@@ -44,6 +44,8 @@ type taskArgs struct {
 
 type ChMetaOpts struct {
 	CutReplicated bool `yaml:"replace_replicated_to_default"`
+	BadStorageToDefault bool `yaml:"move_bad_storage_to_default"`
+	FailIfStorageNotExists bool `yaml:"fail_if_storage_not_exists"`
 }
 
 type WorkerPoolT struct {
@@ -61,6 +63,7 @@ type config struct {
 	ClickhouseRestoreOpts ChMetaOpts          `yaml:"clickhouse_restore_opts"`
 	ClickhouseStorage     map[string]string   `yaml:"clickhouse_storage"`
 	BackupFilter          map[string][]string `yaml:"backup_filter"`
+	RestoreFilter         map[string][]string `yaml:"restore_filter"`
 	WorkerPool            WorkerPoolT         `yaml:"worker_pool"`
 }
 

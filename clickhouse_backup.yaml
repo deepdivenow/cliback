@@ -3,16 +3,22 @@ backup_storage:
   backup_conn:
     hostname: 'stich'
     username: 'dro'
-    port: 30022
-    key_filename: '/home/dro/.ssh/id_rsa'
+    port: 22
+#    key_filename: '/home/dro/.ssh/id_rsa'
+  backup_dir: '/dro/work/click_back'
 #  type: local
-  backup_dir: '/work/click_back'
+#  backup_dir: '/home/dro/DOWN/click_back'
 clickhouse_backup_conn:
   hostname: centos08
+#  username: default
+#  password: default
+#  port: 9000
 clickhouse_restore_conn:
   hostname: centos08
 clickhouse_restore_opts:
   replace_replicated_to_default: True
+  move_bad_storage_to_default: True
+  fail_if_storage_not_exists: True
 # This option Automated from system.disks
 # You can remap for restore to other location
 # Shadow Increment File Taked from default storage
@@ -20,6 +26,11 @@ clickhouse_restore_opts:
 #  default: '/var/lib/clickhouse'
 #  sata: '/ssd/clickhouse'
 #  ssd: '/sata/clickhouse'
+#worker_pool:
+#  num_workers: 8
+#  chan_len: 10
 backup_filter:
   default:
-    - ontime
+#    - ontime
+
+

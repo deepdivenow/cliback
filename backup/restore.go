@@ -76,11 +76,39 @@ func Restore() error {
 	}
 }
 
+func needRestore(db,table string) bool {
+	c := config.New()
+	restoreFilter := c.RestoreFilter
+	if restoreFilter == nil { // Filter not exists, restore all
+		return true
+	}
+	// Database exists in Filter?
+	if tables, ok := restoreFilter[db]; !ok{
+		return false
+	} else {
+		if len(table) < 1 {  // Null table name request
+			return true
+		}
+		if len(tables) < 1{ // Filter for all tables
+			return true
+		} else { // Filter for some tables
+			if Contains(tables,table){
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+}
+
 func Restorev1(bi *backupInfo) error {
 	ch := database.New()
 	c := config.New()
 	log.Print("Restore backup: \n"+bi.String())
 	for db, dbInfo := range bi.DBS {
+		if !needRestore(db,""){
+			continue
+		}
 		err := ch.CreateDatabase(db)
 		if err != nil {
 			s := status.New()
@@ -88,6 +116,9 @@ func Restorev1(bi *backupInfo) error {
 			log.Printf("Create database error: %v", err)
 		}
 		for table, tableInfo := range dbInfo.Tables {
+			if !needRestore(db,table){
+				continue
+			}
 			if len(tableInfo.DbDir) < 1 {
 				tableInfo.DbDir = db
 			}
@@ -187,8 +218,12 @@ func RestoreFiles(ti *tableInfo, jobsChan chan<- workerpool.TaskElem) {
 			Reference:  fileInfo.Reference,
 			Storage:    fileInfo.Storage,
 		}
-		log.Printf("Restore archive: %s to %s", cliF.Archive(), cliF.RestoreDest())
-		jobsChan <- cliF
+		if len(cliF.RestoreDest())>0{
+			log.Printf("Restore archive: %s to %s", cliF.Archive(), cliF.RestoreDest())
+			jobsChan <- cliF
+		} else {
+			log.Printf("ERR: Restore archive: %s, restore dest is NULL")
+		}
 	}
 	close(jobsChan)
 }
@@ -207,8 +242,6 @@ func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
 			time.Sleep(time.Second * 5)
 			continue
 		}
-		//defer tr.Close()
-		//_, err = tr.Copy()
 		// Add copied check
 		if err != nil {
 			log.Printf("Error cp file %s,%s, retry", cf.Archive(), cf.RestoreDest())
