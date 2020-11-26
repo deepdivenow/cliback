@@ -2,12 +2,13 @@ package config
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"path"
 	"strconv"
 	"sync"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Connection struct {
@@ -43,8 +44,8 @@ type taskArgs struct {
 }
 
 type ChMetaOpts struct {
-	CutReplicated bool `yaml:"replace_replicated_to_default"`
-	BadStorageToDefault bool `yaml:"move_bad_storage_to_default"`
+	CutReplicated          bool `yaml:"replace_replicated_to_default"`
+	BadStorageToDefault    bool `yaml:"move_bad_storage_to_default"`
 	FailIfStorageNotExists bool `yaml:"fail_if_storage_not_exists"`
 }
 

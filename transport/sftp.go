@@ -41,7 +41,7 @@ func MakeBackupTransportSFTP(file CliFile) (*transport, error) {
 	}
 	defer source.Close()
 
-	pr,pw:=io.Pipe()
+	pr, pw := io.Pipe()
 	gzw := gzip.NewWriter(pw)
 	mwr := io.MultiWriter(gzw, Sha1Sum)
 	go func() {
@@ -59,7 +59,7 @@ func MakeBackupTransportSFTP(file CliFile) (*transport, error) {
 		t.Size = s.Size()
 	}
 	d, err := dest.Stat()
-		if err == nil {
+	if err == nil {
 		t.BSize = d.Size()
 	}
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))

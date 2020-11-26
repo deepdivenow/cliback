@@ -45,7 +45,7 @@ func (cf *CliFile) RestoreDest() string {
 	if len(cf.Storage) < 1 {
 		store = "default"
 	}
-	if storagePath,ok := c.ClickhouseStorage[store]; ok{
+	if storagePath, ok := c.ClickhouseStorage[store]; ok {
 		return path.Join(storagePath, "data", cf.Path, "detached", cf.Name)
 	}
 	if c.ClickhouseRestoreOpts.BadStorageToDefault {
@@ -54,7 +54,7 @@ func (cf *CliFile) RestoreDest() string {
 			return path.Join(storagePath, "data", cf.Path, "detached", cf.Name)
 		}
 	}
-	if c.ClickhouseRestoreOpts.FailIfStorageNotExists{
+	if c.ClickhouseRestoreOpts.FailIfStorageNotExists {
 		log.Fatal(fmt.Sprint("ERR: Bad storage: %s", store))
 	}
 	return ""

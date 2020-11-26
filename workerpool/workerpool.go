@@ -28,14 +28,14 @@ type WorkerPool struct {
 }
 
 func MakeWorkerPool(t Task, numWorkers, numRetry, chanLen int) *WorkerPool {
-	if numWorkers < 1{
-		numWorkers=8
+	if numWorkers < 1 {
+		numWorkers = 8
 	}
-	if numRetry < 1{
-		numRetry=3
+	if numRetry < 1 {
+		numRetry = 3
 	}
 	if chanLen < numWorkers {
-		chanLen = numWorkers*2
+		chanLen = numWorkers * 2
 	}
 	return &WorkerPool{
 		task:        t,

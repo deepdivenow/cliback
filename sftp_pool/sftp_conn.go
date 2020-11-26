@@ -3,14 +3,15 @@ package sftp_pool
 import (
 	"bufio"
 	"errors"
-	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
 )
 
 func MakeSshClientConfig(c map[string]string) ssh.ClientConfig {
@@ -26,9 +27,9 @@ func MakeSshClientConfig(c map[string]string) ssh.ClientConfig {
 	}
 	homePath, exists := os.LookupEnv("HOME")
 	if exists {
-		for _,p := range []string{path.Join(homePath,".ssh/id_rsa"),path.Join(homePath,".ssh/id_sda")} {
-			fi,err:=os.Stat(p)
-			if err == nil && !fi.IsDir(){
+		for _, p := range []string{path.Join(homePath, ".ssh/id_rsa"), path.Join(homePath, ".ssh/id_sda")} {
+			fi, err := os.Stat(p)
+			if err == nil && !fi.IsDir() {
 				pkeyPaths = append(pkeyPaths, p)
 			}
 		}

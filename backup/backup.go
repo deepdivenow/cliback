@@ -16,7 +16,7 @@ import (
 
 func FindFiles(jobsChan chan<- workerpool.TaskElem) {
 	c := config.New()
-	for storage, _ := range c.ClickhouseStorage {
+	for storage := range c.ClickhouseStorage {
 		dirForBackup := c.GetShadow(storage)
 		st, err := os.Stat(dirForBackup)
 		if err != nil {
@@ -76,7 +76,7 @@ func CheckForReference(cf transport.CliFile) transport.CliFile {
 	return cf
 }
 
-/// This Job Running in Worker Pool
+// BackupRun This func Running in Worker Pool
 func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
 	c := config.New()
 	for {
@@ -182,7 +182,7 @@ func Backup() error {
 			log.Printf("Write backup info error: %v", err)
 		}
 	}
-	log.Print("Backup info:\n"+bi.String())
+	log.Print("Backup info:\n" + bi.String())
 	return nil
 }
 

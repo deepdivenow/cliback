@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func check_backup_type(bi *backupInfo) error {
+func checkBackupType(bi *backupInfo) error {
 	if len(bi.BackupFilter) < 1 {
 		errors.New("BackupFilter not parsed")
 	}
@@ -46,7 +46,7 @@ func TestBackupRead(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Unmarshal: %v", err)
 	}
-	err = check_backup_type(bi)
+	err = checkBackupType(bi)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -64,7 +64,7 @@ func TestMetaTransportLocalRead(t *testing.T) {
 		Sha1:     "",
 		Content:  bytes.Buffer{},
 	}
-	mf, err := transport.ReadMetaLocal(mf)
+	err := transport.ReadMetaLocal(&mf)
 	if err != nil {
 		t.Error("Error read metafile")
 	}
@@ -72,7 +72,7 @@ func TestMetaTransportLocalRead(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unmarshal: %v", err)
 	}
-	err = check_backup_type(bi)
+	err = checkBackupType(bi)
 	if err != nil {
 		t.Error(err.Error())
 	}

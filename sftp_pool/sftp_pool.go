@@ -4,12 +4,13 @@ import (
 	"cliback/config"
 	"container/list"
 	"errors"
-	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
 	"log"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
 )
 
 var (

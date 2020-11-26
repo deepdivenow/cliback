@@ -32,9 +32,9 @@ func (ti *tableInfo) Add(fi *fileInfo, fname string) {
 			ti.Reference = append(ti.Reference, fi.Reference)
 		}
 	}
-	if len(fi.Storage) > 0{
-		if !(Contains(ti.Storages,fi.Storage)){
-			ti.Storages=append(ti.Storages, fi.Storage)
+	if len(fi.Storage) > 0 {
+		if !(Contains(ti.Storages, fi.Storage)) {
+			ti.Storages = append(ti.Storages, fi.Storage)
 		}
 	}
 }
@@ -134,6 +134,8 @@ func Contains(a []string, x string) bool {
 	}
 	return false
 }
+
+// Position say substring position
 func Position(a []string, x string) (int, error) {
 	for i, n := range a {
 		if x == n {
@@ -143,6 +145,7 @@ func Position(a []string, x string) (int, error) {
 	return 0, errors.New("Substring not found")
 }
 
+// GetFormatedTime return current time in formated style
 func GetFormatedTime() string {
 	t := time.Now()
 	formatted := fmt.Sprintf("%04d%02d%02d_%02d%02d%02d",
@@ -173,7 +176,7 @@ func GetDirs(p string) ([]string, error) {
 func GetDirsInShadow(DbDir, TableDir string) []string {
 	var result []string
 	c := config.New()
-	for storage, _ := range c.ClickhouseStorage {
+	for storage := range c.ClickhouseStorage {
 		res, err := GetDirs(path.Join(c.GetShadow(storage), "data", DbDir, TableDir))
 		if err != nil {
 			continue
@@ -211,7 +214,7 @@ func SplitShadow(p string) ([]string, error) {
 
 func RemoveShadowDirs() {
 	c := config.New()
-	for storage, _ := range c.ClickhouseStorage {
+	for storage := range c.ClickhouseStorage {
 		shDir := c.GetShadow(storage)
 		st, err := os.Stat(shDir)
 		if err != nil {

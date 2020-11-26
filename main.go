@@ -15,13 +15,13 @@ type MainArgs struct {
 	backupMode  bool
 	restoreMode bool
 	infoMode    bool
-	jobId       string
-	partId      string
+	jobID       string
+	partID      string
 	backupType  string
 }
 
-func (ma *MainArgs) parse_mode() error {
-	var modeCount int = 0
+func (ma *MainArgs) parseMode() error {
+	modeCount := 0
 	if ma.backupMode {
 		modeCount++
 	}
@@ -33,9 +33,8 @@ func (ma *MainArgs) parse_mode() error {
 	}
 	if modeCount == 1 {
 		return nil
-	} else {
-		return errors.New("Bad command line args usage: backup/restore/info")
 	}
+	return errors.New("Bad command line args usage: backup/restore/info")
 }
 
 // Contains tells whether a contains x.
@@ -60,15 +59,15 @@ func main() {
 	flag.BoolVar(&cargs.infoMode, "d", false, "Debug messages (shotland)")
 	flag.StringVar(&cargs.configFile, "config", "clickhouse_backup.yaml", "path to config file")
 	flag.StringVar(&cargs.configFile, "c", "clickhouse_backup.yaml", "path to config file (shotland)")
-	flag.StringVar(&cargs.jobId, "jobid", "", "JobId for restore")
-	flag.StringVar(&cargs.jobId, "j", "", "JobId for restore (shotland)")
+	flag.StringVar(&cargs.jobID, "jobid", "", "JobId for restore")
+	flag.StringVar(&cargs.jobID, "j", "", "JobId for restore (shotland)")
 	flag.StringVar(&cargs.backupType, "backup-type", "", "Backup type (default: full)")
 	flag.StringVar(&cargs.backupType, "t", "", "Backup type (default: full) (shotland)")
-	flag.StringVar(&cargs.partId, "partid", "", "PartId for backup OR restore ")
-	flag.StringVar(&cargs.partId, "p", "", "PartId for backup OR restore (shotland)")
+	flag.StringVar(&cargs.partID, "partid", "", "PartId for backup OR restore ")
+	flag.StringVar(&cargs.partID, "p", "", "PartId for backup OR restore (shotland)")
 	flag.Parse()
 
-	err := cargs.parse_mode()
+	err := cargs.parseMode()
 	if err != nil {
 		println(err)
 		flag.Usage()
@@ -85,8 +84,8 @@ func main() {
 		os.Exit(s.GetFinalStatus())
 	}
 
-	c.TaskArgs.JobName = cargs.jobId
-	c.TaskArgs.JobPartition = cargs.partId
+	c.TaskArgs.JobName = cargs.jobID
+	c.TaskArgs.JobPartition = cargs.partID
 	if len(cargs.backupType) > 0 && Contains([]string{"full", "diff", "incr", "part"}, cargs.backupType) {
 		c.TaskArgs.BackupType = cargs.backupType
 	} else {
