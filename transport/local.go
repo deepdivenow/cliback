@@ -202,6 +202,7 @@ func SearchMetaLocal() ([]string, error) {
 	return backupNames, nil
 }
 
-func DeleteBackupLocal(backupName string) (error) {
-	return nil
+func DeleteBackupLocal(backupName string) error {
+	c:=config.New()
+	return os.RemoveAll(path.Join(c.BackupStorage.BackupDir,backupName))
 }
