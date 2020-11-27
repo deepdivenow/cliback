@@ -13,10 +13,10 @@ import (
 	"path"
 	"sort"
 )
-
-func MakeBackupTransportSFTP(file CliFile) (*transport, error) {
+// MakeBackupTransportSFTP archive file and returns meta info
+func MakeBackupTransportSFTP(file CliFile) (*Transport, error) {
 	c := config.New()
-	t := new(transport)
+	t := new(Transport)
 	Sha1Sum := sha1.New()
 	sp := sftp_pool.New()
 	sftpCli, err := sp.GetClientLoop()
@@ -64,10 +64,10 @@ func MakeBackupTransportSFTP(file CliFile) (*transport, error) {
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
-
-func MakeRestoreTransportSFTP(file CliFile) (*transport, error) {
+// MakeRestoreTransportSFTP restore file and returns meta info
+func MakeRestoreTransportSFTP(file CliFile) (*Transport, error) {
 	c := config.New()
-	t := new(transport)
+	t := new(Transport)
 	Sha1Sum := sha1.New()
 
 	destFile := path.Join(file.RestoreDest())
@@ -114,7 +114,7 @@ func MakeRestoreTransportSFTP(file CliFile) (*transport, error) {
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
-
+// WriteMetaSFTP archive backup metafile and returns meta info
 func WriteMetaSFTP(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
@@ -150,7 +150,7 @@ func WriteMetaSFTP(mf *MetaFile) error {
 	}
 	return nil
 }
-
+// ReadMetaSFTP restore backup metafile and returns meta info
 func ReadMetaSFTP(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
@@ -215,7 +215,7 @@ func ReadMetaSFTP(mf *MetaFile) error {
 	mf.Sha1 = hex.EncodeToString(sha1sum.Sum(nil))
 	return nil
 }
-
+// SearchMetaSFTP search & returns backup names in archive
 func SearchMetaSFTP() ([]string, error) {
 	var bnames []string
 	c := config.New()
@@ -237,7 +237,7 @@ func SearchMetaSFTP() ([]string, error) {
 	sort.Strings(bnames)
 	return bnames, nil
 }
-
+// DeleteBackupSFTP delete backup from archive
 func DeleteBackupSFTP(backupName string) error {
 	c := config.New()
 	sp := sftp_pool.New()

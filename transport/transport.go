@@ -5,14 +5,14 @@ import (
 	"errors"
 	"regexp"
 )
-
-type transport struct {
+// Transport for backup/restore files
+type Transport struct {
 	Size    int64
 	BSize   int64
 	Sha1Sum string
 }
-
-func MakeTransport(file CliFile) (*transport, error) {
+// MakeTransport archive file and returns meta info
+func MakeTransport(file CliFile) (*Transport, error) {
 	c := config.New()
 	if file.RunJobType == Backup {
 		switch c.BackupStorage.Type {
@@ -36,7 +36,7 @@ func MakeTransport(file CliFile) (*transport, error) {
 	}
 	return nil, errors.New("Transport not created")
 }
-
+// ReadMeta restore backup metafile and returns meta info
 func ReadMeta(mf *MetaFile) error {
 	c := config.New()
 	switch c.BackupStorage.Type {
@@ -48,7 +48,7 @@ func ReadMeta(mf *MetaFile) error {
 		return errors.New("Meta Read bad transport type")
 	}
 }
-
+// WriteMeta archive backup metafile and returns meta info
 func WriteMeta(mf *MetaFile) error {
 	c := config.New()
 	switch c.BackupStorage.Type {
@@ -60,7 +60,7 @@ func WriteMeta(mf *MetaFile) error {
 		return errors.New("Meta Read bad transport type")
 	}
 }
-
+// SearchMeta search & returns backup names in archive
 func SearchMeta() ([]string, error) {
 	c := config.New()
 	switch c.BackupStorage.Type {
@@ -72,7 +72,7 @@ func SearchMeta() ([]string, error) {
 		return nil, errors.New("Meta Read bad transport type")
 	}
 }
-
+// DeleteBackup delete backup from archive
 func DeleteBackup(backupName string) (error) {
 	c := config.New()
 	switch c.BackupStorage.Type {

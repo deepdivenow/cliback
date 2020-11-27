@@ -13,7 +13,7 @@ import (
 	"path"
 	"sort"
 )
-
+// MakeDirsRecurse make recursive dirs on local FS
 func MakeDirsRecurse(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err := os.MkdirAll(path, 0755)
@@ -23,9 +23,10 @@ func MakeDirsRecurse(path string) error {
 	}
 	return nil
 }
-func MakeBackupTransportLocal(file CliFile) (*transport, error) {
+// MakeBackupTransportLocal archive file and returns meta info
+func MakeBackupTransportLocal(file CliFile) (*Transport, error) {
 	c := config.New()
-	t := new(transport)
+	t := new(Transport)
 	Sha1Sum := sha1.New()
 	destFile := path.Join(c.BackupStorage.BackupDir, file.Archive())
 	err := MakeDirsRecurse(path.Dir(destFile))
@@ -61,10 +62,10 @@ func MakeBackupTransportLocal(file CliFile) (*transport, error) {
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
-
-func MakeRestoreTransportLocal(file CliFile) (*transport, error) {
+// MakeRestoreTransportLocal restore file and returns meta info
+func MakeRestoreTransportLocal(file CliFile) (*Transport, error) {
 	c := config.New()
-	t := new(transport)
+	t := new(Transport)
 	Sha1Sum := sha1.New()
 
 	err := MakeDirsRecurse(path.Dir(file.RestoreDest()))
@@ -105,7 +106,7 @@ func MakeRestoreTransportLocal(file CliFile) (*transport, error) {
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
-
+// WriteMetaLocal archive backup metafile and returns meta info
 func WriteMetaLocal(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
@@ -135,7 +136,7 @@ func WriteMetaLocal(mf *MetaFile) error {
 	}
 	return nil
 }
-
+// ReadMetaLocal restore backup metafile and returns meta info
 func ReadMetaLocal(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
@@ -185,7 +186,7 @@ func ReadMetaLocal(mf *MetaFile) error {
 	mf.Sha1 = hex.EncodeToString(sha1sum.Sum(nil))
 	return nil
 }
-
+// SearchMetaLocal search & returns backup names in archive
 func SearchMetaLocal() ([]string, error) {
 	var backupNames []string
 	c := config.New()
@@ -201,7 +202,7 @@ func SearchMetaLocal() ([]string, error) {
 	sort.Strings(backupNames)
 	return backupNames, nil
 }
-
+// DeleteBackupLocal delete backup from archive
 func DeleteBackupLocal(backupName string) error {
 	c:=config.New()
 	return os.RemoveAll(path.Join(c.BackupStorage.BackupDir,backupName))
