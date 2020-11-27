@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"regexp"
 	"sort"
 )
 
@@ -231,12 +230,22 @@ func SearchMetaSFTP() ([]string, error) {
 		return bnames, err
 	}
 	for _, file := range fileInfo {
-		if file.IsDir() {
-			if reMatch, _ := regexp.MatchString("^(\\d{8}_\\d{6}[FDIP]{1})$", file.Name()); reMatch {
-				bnames = append(bnames, file.Name())
-			}
+		if file.IsDir() && metaDirNameMatched(file.Name()){
+			bnames = append(bnames, file.Name())
 		}
 	}
 	sort.Strings(bnames)
 	return bnames, nil
 }
+
+func DeleteBackupSFTP(backupName string) error {
+	c := config.New()
+	sp := sftp_pool.New()
+	sftpCli, err := sp.GetClientLoop()
+	if err != nil {
+		return err
+	}
+	defer sp.ReleaseClient(sftpCli)
+	return sftp_pool.RemoveDirectoryRecursive(sftpCli,path.Join(c.BackupStorage.BackupDir,backupName))
+}
+

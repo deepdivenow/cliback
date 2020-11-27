@@ -66,6 +66,7 @@ type config struct {
 	BackupFilter          map[string][]string `yaml:"backup_filter"`
 	RestoreFilter         map[string][]string `yaml:"restore_filter"`
 	WorkerPool            WorkerPoolT         `yaml:"worker_pool"`
+	RetentionBackupFull   int                 `yaml:"retention_backup_full"`
 }
 
 var (

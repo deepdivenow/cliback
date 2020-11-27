@@ -80,3 +80,4 @@ func (pb *previousBackups) GetBackupNames() []string {
 	sort.Strings(result)
 	return result
 }
+

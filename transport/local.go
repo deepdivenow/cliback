@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"regexp"
 	"sort"
 )
 
@@ -195,12 +194,14 @@ func SearchMetaLocal() ([]string, error) {
 		return backupNames, err
 	}
 	for _, file := range fileInfo {
-		if file.IsDir() {
-			if reMatch, _ := regexp.MatchString("^(\\d{8}_\\d{6}[FDIP]{1})$", file.Name()); reMatch {
-				backupNames = append(backupNames, file.Name())
-			}
+		if file.IsDir() && metaDirNameMatched(file.Name()){
+			backupNames = append(backupNames, file.Name())
 		}
 	}
 	sort.Strings(backupNames)
 	return backupNames, nil
+}
+
+func DeleteBackupLocal(backupName string) (error) {
+	return nil
 }

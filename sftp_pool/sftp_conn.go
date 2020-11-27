@@ -120,3 +120,26 @@ func getHostKey(host string) ssh.PublicKey {
 
 	return hostKey
 }
+
+func RemoveDirectoryRecursive(sftpClient *sftp.Client, remotePath string) error {
+	remoteFiles, err := sftpClient.ReadDir(remotePath)
+	if err != nil {
+		return err
+	}
+	defer sftpClient.RemoveDirectory(remotePath)
+	for _, backupDir := range remoteFiles {
+		remoteFilePath := path.Join(remotePath, backupDir.Name())
+		if backupDir.IsDir() {
+			err=RemoveDirectoryRecursive(sftpClient,remoteFilePath)
+			if err != nil {
+				return err
+			}
+		} else {
+			err=sftpClient.Remove(path.Join(remoteFilePath))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

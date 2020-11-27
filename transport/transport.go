@@ -3,6 +3,7 @@ package transport
 import (
 	"cliback/config"
 	"errors"
+	"regexp"
 )
 
 type transport struct {
@@ -70,4 +71,23 @@ func SearchMeta() ([]string, error) {
 	default:
 		return nil, errors.New("Meta Read bad transport type")
 	}
+}
+
+func DeleteBackup(backupName string) (error) {
+	c := config.New()
+	switch c.BackupStorage.Type {
+	case "local":
+		return DeleteBackupLocal(backupName)
+	case "sftp":
+		return DeleteBackupSFTP(backupName)
+	default:
+		return errors.New("Meta Read bad transport type")
+	}
+}
+
+func metaDirNameMatched (metaDirName string) bool {
+	if reMatch, _ := regexp.MatchString("^(\\d{8}_\\d{6}[FDIP]{1})$", metaDirName); reMatch {
+		return true
+	}
+	return false
 }

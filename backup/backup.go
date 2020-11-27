@@ -120,6 +120,7 @@ func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
 
 func Backup() error {
 	// Main backup loop
+	retentionBeforeBackup()
 	c := config.New()
 	ch := database.New()
 	ch.SetDSN(c.ClickhouseBackupConn)

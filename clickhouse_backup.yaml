@@ -9,12 +9,12 @@ backup_storage:
 #  type: local
 #  backup_dir: '/home/dro/DOWN/click_back'
 clickhouse_backup_conn:
-  hostname: centos08
+  hostname: centos01
 #  username: default
 #  password: default
 #  port: 9000
 clickhouse_restore_conn:
-  hostname: centos08
+  hostname: centos02
 clickhouse_restore_opts:
   replace_replicated_to_default: True
   move_bad_storage_to_default: True
@@ -26,6 +26,7 @@ clickhouse_restore_opts:
 #  default: '/var/lib/clickhouse'
 #  sata: '/ssd/clickhouse'
 #  ssd: '/sata/clickhouse'
+retention_backup_full: 10
 #worker_pool:
 #  num_workers: 8
 #  chan_len: 10
