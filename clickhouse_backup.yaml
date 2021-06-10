@@ -10,11 +10,16 @@ backup_storage:
 #  backup_dir: '/home/dro/DOWN/click_back'
 clickhouse_backup_conn:
   hostname: centos01
+  username: default
+  password: default
+  port: 9000
+  secure: true
+clickhouse_restore_conn:
+  hostname: centos02
 #  username: default
 #  password: default
 #  port: 9000
-clickhouse_restore_conn:
-  hostname: centos02
+#  secure: true
 clickhouse_restore_opts:
   replace_replicated_to_default: True
   move_bad_storage_to_default: True

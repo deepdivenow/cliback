@@ -39,28 +39,61 @@ func New() *ChDb {
 	})
 	return chdbInstance
 }
-func (ch *ChDb) SetDSN(dsn config.Connection) {
-	var host, port string
-	if len(dsn.HostName) > 0 {
-		host = dsn.HostName
-	} else {
+
+type dsnString struct {
+	Host string
+	Port string
+	args map[string]interface{}
+}
+
+func CreateDsnString(host string, port uint16) dsnString {
+	if len(host) < 1 {
 		host = "localhost"
 	}
-	if dsn.Port < 1 {
-		port = "9000"
-	} else {
-		port = strconv.FormatUint(uint64(dsn.Port), 10)
+	if port < 1 {
+		port = 9000
 	}
-	if len(dsn.UserName) > 0 {
-		if len(dsn.Password) > 0 {
-			ch.dsn = fmt.Sprintf("tcp://%s:%s?username=%s&password=%s", host, port, dsn.UserName, dsn.Password)
-		} else {
-			ch.dsn = fmt.Sprintf("tcp://%s:%s?username=%s", host, port, dsn.UserName)
-		}
+	return dsnString{
+		Host: host,
+		Port: strconv.FormatUint(uint64(port), 10),
+		args: map[string]interface{}{},
+	}
+}
 
-	} else {
-		ch.dsn = fmt.Sprintf("tcp://%s:%s", host, port)
+func (d dsnString) Add(argName string, argValue interface{}) {
+	d.args[argName] = argValue
+}
+
+func (d dsnString) GetDSN() string {
+	result := fmt.Sprintf("tcp://%s:%s", d.Host, d.Port)
+	if len(d.args) < 1 {
+		return result
 	}
+	delim := "?"
+	for k, v := range d.args {
+		switch v.(type) {
+		case string:
+			if len(v.(string)) > 0 {
+				result += fmt.Sprintf("%s%s=%v", delim, k, v)
+			} else { continue }
+		case bool:
+			if v.(bool) {
+				result += fmt.Sprintf("%s%s=%v", delim, k, v)
+			} else { continue }
+		default:
+			result += fmt.Sprintf("%s%s=%v", delim, k, v)
+		}
+		delim = "&"
+	}
+	return result
+}
+
+func (ch *ChDb) SetDSN(dsn config.Connection) {
+	dsnStr := CreateDsnString(dsn.HostName, dsn.Port)
+	dsnStr.Add("username", dsn.UserName)
+	dsnStr.Add("password", dsn.Password)
+	dsnStr.Add("secure", dsn.Secure)
+	ch.dsn = dsnStr.GetDSN()
 }
 func (ch *ChDb) SetMetaOpts(cm config.ChMetaOpts) {
 	ch.metaOpts.cutReplicated = cm.CutReplicated

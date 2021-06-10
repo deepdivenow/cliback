@@ -5,6 +5,11 @@ import (
 	"errors"
 	"regexp"
 )
+
+var (
+	errTransCreate = errors.New("Transport not created")
+	errBadTransType = errors.New("Meta Read bad transport type")
+)
 // Transport for backup/restore files
 type Transport struct {
 	Size    int64
@@ -21,7 +26,7 @@ func MakeTransport(file CliFile) (*Transport, error) {
 		case "sftp":
 			return MakeBackupTransportSFTP(file)
 		default:
-			return nil, errors.New("Transport not created")
+			return nil, errTransCreate
 		}
 	}
 	if file.RunJobType == Restore {
@@ -31,10 +36,10 @@ func MakeTransport(file CliFile) (*Transport, error) {
 		case "sftp":
 			return MakeRestoreTransportSFTP(file)
 		default:
-			return nil, errors.New("Transport not created")
+			return nil, errTransCreate
 		}
 	}
-	return nil, errors.New("Transport not created")
+	return nil, errTransCreate
 }
 // ReadMeta restore backup metafile and returns meta info
 func ReadMeta(mf *MetaFile) error {
@@ -45,7 +50,7 @@ func ReadMeta(mf *MetaFile) error {
 	case "sftp":
 		return ReadMetaSFTP(mf)
 	default:
-		return errors.New("Meta Read bad transport type")
+		return errBadTransType
 	}
 }
 // WriteMeta archive backup metafile and returns meta info
@@ -57,7 +62,7 @@ func WriteMeta(mf *MetaFile) error {
 	case "sftp":
 		return WriteMetaSFTP(mf)
 	default:
-		return errors.New("Meta Read bad transport type")
+		return errBadTransType
 	}
 }
 // SearchMeta search & returns backup names in archive
@@ -69,7 +74,7 @@ func SearchMeta() ([]string, error) {
 	case "sftp":
 		return SearchMetaSFTP()
 	default:
-		return nil, errors.New("Meta Read bad transport type")
+		return nil, errBadTransType
 	}
 }
 // DeleteBackup delete backup from archive
@@ -81,7 +86,7 @@ func DeleteBackup(backupName string) (error) {
 	case "sftp":
 		return DeleteBackupSFTP(backupName)
 	default:
-		return errors.New("Meta Read bad transport type")
+		return errBadTransType
 	}
 }
 
