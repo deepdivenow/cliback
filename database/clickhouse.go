@@ -93,6 +93,7 @@ func (ch *ChDb) SetDSN(dsn config.Connection) {
 	dsnStr.Add("username", dsn.UserName)
 	dsnStr.Add("password", dsn.Password)
 	dsnStr.Add("secure", dsn.Secure)
+	dsnStr.Add("skip_verify", dsn.SkipVerify)
 	ch.dsn = dsnStr.GetDSN()
 }
 func (ch *ChDb) SetMetaOpts(cm config.ChMetaOpts) {

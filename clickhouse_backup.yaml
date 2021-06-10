@@ -14,6 +14,7 @@ clickhouse_backup_conn:
   password: default
   port: 9000
   secure: true
+  skip_verify: true
 clickhouse_restore_conn:
   hostname: centos02
 #  username: default

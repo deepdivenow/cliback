@@ -18,6 +18,7 @@ type Connection struct {
 	Port        uint16 `yaml:"port,omitempty"`
 	KeyFilename string `yaml:"key_filename,omitempty"`
 	Secure      bool   `yaml:"secure,omitempty"`
+	SkipVerify  bool   `yaml:"skip_verify,omitempty"`
 }
 
 type backupStorage struct {
