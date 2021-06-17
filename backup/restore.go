@@ -16,7 +16,11 @@ import (
 
 func GetMetaForRestore() (*backupInfo, error) {
 	var bi *backupInfo
-	metas, err := transport.SearchMeta()
+	tr, err := transport.MakeTransport()
+	if err != nil {
+		return bi, err
+	}
+	metas, err := tr.SearchMeta()
 	if err != nil {
 		return bi, err
 	}
@@ -132,7 +136,11 @@ func Restorev1(bi *backupInfo) error {
 				TryRetry: false,
 				Sha1:     mi.Sha1,
 			}
-			err := transport.ReadMeta(&mf)
+			tr, err := transport.MakeTransport()
+			if err != nil {
+				return err
+			}
+			err = tr.ReadMeta(&mf)
 			if err != nil {
 				s := status.New()
 				s.SetStatus(status.FailRestoreMeta)
@@ -229,7 +237,11 @@ func RestoreFiles(ti *tableInfo, jobsChan chan<- workerpool.TaskElem) {
 
 func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
 	for {
-		tr, err := transport.MakeTransport(cf)
+		tr, err := transport.MakeTransport()
+		if err != nil {
+			return cf, err
+		}
+		trStat, err := tr.Do(cf)
 		if err != nil {
 			if err == os.ErrNotExist {
 				log.Printf("File not Exists %s %s", err, cf.Archive())
@@ -248,7 +260,7 @@ func RestoreRun(cf transport.CliFile) (transport.CliFile, error) {
 			//tr.Close()
 			continue
 		}
-		restoredSha1 := tr.Sha1Sum
+		restoredSha1 := trStat.Sha1Sum
 		if restoredSha1 != cf.Sha1 {
 			s := status.New()
 			s.SetStatus(status.FailRestoreFile)
@@ -268,7 +280,11 @@ func BackupRead(backupName string) (*backupInfo, error) {
 		TryRetry: false,
 		Sha1:     "",
 	}
-	err := transport.ReadMeta(&mf)
+	tr, err := transport.MakeTransport()
+	if err != nil {
+		return nil, err
+	}
+	err = tr.ReadMeta(&mf)
 	if err != nil {
 		if c.TaskArgs.Debug {
 			log.Println("Error read metafile ", mf.Path)

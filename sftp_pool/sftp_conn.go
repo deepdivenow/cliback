@@ -130,12 +130,12 @@ func RemoveDirectoryRecursive(sftpClient *sftp.Client, remotePath string) error 
 	for _, backupDir := range remoteFiles {
 		remoteFilePath := path.Join(remotePath, backupDir.Name())
 		if backupDir.IsDir() {
-			err=RemoveDirectoryRecursive(sftpClient,remoteFilePath)
+			err = RemoveDirectoryRecursive(sftpClient, remoteFilePath)
 			if err != nil {
 				return err
 			}
 		} else {
-			err=sftpClient.Remove(path.Join(remoteFilePath))
+			err = sftpClient.Remove(path.Join(remoteFilePath))
 			if err != nil {
 				return err
 			}

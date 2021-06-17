@@ -30,7 +30,11 @@ func (pb *previousBackups) Founded() bool {
 }
 
 func (pb *previousBackups) Search(t string) error {
-	metas, err := transport.SearchMeta()
+	tr, err := transport.MakeTransport()
+	if err != nil {
+		return err
+	}
+	metas, err := tr.SearchMeta()
 	if err != nil {
 		return err
 	}
@@ -80,4 +84,3 @@ func (pb *previousBackups) GetBackupNames() []string {
 	sort.Strings(result)
 	return result
 }
-

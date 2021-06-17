@@ -1,10 +1,10 @@
 package backupMap
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"sync"
-	"fmt"
 )
 
 var (
@@ -79,7 +79,7 @@ func (bm *backupMap) GetFulls() []string {
 }
 
 func (bm *backupMap) GetFullsForDelete(maxFullBacks int) []string {
-	fulls:=bm.GetFulls()
+	fulls := bm.GetFulls()
 	lenFulls := len(fulls)
 	if lenFulls <= maxFullBacks {
 		return []string{}
@@ -89,7 +89,7 @@ func (bm *backupMap) GetFullsForDelete(maxFullBacks int) []string {
 }
 
 func (bm *backupMap) GetFullsForStore(maxFullBacks int) []string {
-	fulls:=bm.GetFulls()
+	fulls := bm.GetFulls()
 	lenFulls := len(fulls)
 	sort.Strings(fulls)
 	if lenFulls <= maxFullBacks {
@@ -127,18 +127,18 @@ func Contains(a []string, x string) bool {
 }
 
 func isFullBackup(name string) bool {
-	if metaDirNameMatched(name,"F") {
+	if metaDirNameMatched(name, "F") {
 		return true
 	}
 	return false
 }
 
-func metaDirNameMatched (metaDirName string, types ...string) bool {
-	backupType:="FDIP"
+func metaDirNameMatched(metaDirName string, types ...string) bool {
+	backupType := "FDIP"
 	if len(types) > 0 {
-		backupType=types[0]
+		backupType = types[0]
 	}
-	matchString:=fmt.Sprintf("^(\\d{8}_\\d{6}[%s]{1})$",backupType)
+	matchString := fmt.Sprintf("^(\\d{8}_\\d{6}[%s]{1})$", backupType)
 	if reMatch, _ := regexp.MatchString(matchString, metaDirName); reMatch {
 		return true
 	}

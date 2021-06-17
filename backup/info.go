@@ -27,7 +27,11 @@ func (bi *backupInfo) String() string {
 }
 
 func Info() error {
-	metas, err := transport.SearchMeta()
+	tr, err := transport.MakeTransport()
+	if err != nil {
+		return err
+	}
+	metas, err := tr.SearchMeta()
 	if err != nil {
 		return err
 	}

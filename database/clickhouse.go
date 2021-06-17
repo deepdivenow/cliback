@@ -75,11 +75,15 @@ func (d dsnString) GetDSN() string {
 		case string:
 			if len(v.(string)) > 0 {
 				result += fmt.Sprintf("%s%s=%v", delim, k, v)
-			} else { continue }
+			} else {
+				continue
+			}
 		case bool:
 			if v.(bool) {
 				result += fmt.Sprintf("%s%s=%v", delim, k, v)
-			} else { continue }
+			} else {
+				continue
+			}
 		default:
 			result += fmt.Sprintf("%s%s=%v", delim, k, v)
 		}

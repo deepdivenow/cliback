@@ -17,14 +17,18 @@ func retentionAfterBackup() error {
 }
 
 func retentionCleanup() error {
-	c:=config.New()
+	c := config.New()
 	if c.RetentionBackupFull < 1 {
 		return nil
 	}
 	log.Println("Retention: Start...")
 	log.Println("Retention: RetentionBackupFull: ", c.RetentionBackupFull)
 	bm := backupMap.New()
-	metas, err := transport.SearchMeta()
+	tr, err := transport.MakeTransport()
+	if err != nil {
+		return err
+	}
+	metas, err := tr.SearchMeta()
 	if err != nil {
 		return err
 	}
@@ -36,9 +40,9 @@ func retentionCleanup() error {
 	for _, backupName := range metas {
 		bi, err := BackupRead(backupName)
 		if err != nil {
-			log.Println("Retention: ",backupName,err)
+			log.Println("Retention: ", backupName, err)
 			if err == os.ErrNotExist {
-				log.Println("Retention: ",backupName,"Added to BadBackups")
+				log.Println("Retention: ", backupName, "Added to BadBackups")
 				badBackups = append(badBackups, backupName)
 			}
 			continue
@@ -62,11 +66,15 @@ func retentionCleanup() error {
 }
 
 func retentionDeleteBackup(backups []string) error {
-	for _,b := range backups {
-		log.Println("Retention: BackupDelete ",b)
-		err:=transport.DeleteBackup(b)
+	for _, b := range backups {
+		log.Println("Retention: BackupDelete ", b)
+		tr, err := transport.MakeTransport()
 		if err != nil {
-			log.Println("Retention: BackupDelete ",b,err)
+			return err
+		}
+		err = tr.DeleteBackup(b)
+		if err != nil {
+			log.Println("Retention: BackupDelete ", b, err)
 		}
 	}
 	return nil

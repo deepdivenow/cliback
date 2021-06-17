@@ -13,10 +13,26 @@ import (
 	"path"
 	"sort"
 )
+
+type TransportSFTP struct {
+}
+
+func (ts *TransportSFTP) Do(file CliFile) (*TransportStat, error) {
+	switch file.RunJobType {
+	case Backup:
+		return ts.Backup(file)
+	case Restore:
+		return ts.Restore(file)
+	default:
+		return nil, errTransCreate
+	}
+	return nil, errTransCreate
+}
+
 // MakeBackupTransportSFTP archive file and returns meta info
-func MakeBackupTransportSFTP(file CliFile) (*Transport, error) {
+func (ts *TransportSFTP) Backup(file CliFile) (*TransportStat, error) {
 	c := config.New()
-	t := new(Transport)
+	t := new(TransportStat)
 	Sha1Sum := sha1.New()
 	sp := sftp_pool.New()
 	sftpCli, err := sp.GetClientLoop()
@@ -64,10 +80,11 @@ func MakeBackupTransportSFTP(file CliFile) (*Transport, error) {
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
+
 // MakeRestoreTransportSFTP restore file and returns meta info
-func MakeRestoreTransportSFTP(file CliFile) (*Transport, error) {
+func (ts *TransportSFTP) Restore(file CliFile) (*TransportStat, error) {
 	c := config.New()
-	t := new(Transport)
+	t := new(TransportStat)
 	Sha1Sum := sha1.New()
 
 	destFile := path.Join(file.RestoreDest())
@@ -114,8 +131,9 @@ func MakeRestoreTransportSFTP(file CliFile) (*Transport, error) {
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
+
 // WriteMetaSFTP archive backup metafile and returns meta info
-func WriteMetaSFTP(mf *MetaFile) error {
+func (ts *TransportSFTP) WriteMeta(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
 	sp := sftp_pool.New()
@@ -150,8 +168,9 @@ func WriteMetaSFTP(mf *MetaFile) error {
 	}
 	return nil
 }
+
 // ReadMetaSFTP restore backup metafile and returns meta info
-func ReadMetaSFTP(mf *MetaFile) error {
+func (ts *TransportSFTP) ReadMeta(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
 	dest := bufio.NewWriter(&mf.Content)
@@ -215,8 +234,9 @@ func ReadMetaSFTP(mf *MetaFile) error {
 	mf.Sha1 = hex.EncodeToString(sha1sum.Sum(nil))
 	return nil
 }
+
 // SearchMetaSFTP search & returns backup names in archive
-func SearchMetaSFTP() ([]string, error) {
+func (ts *TransportSFTP) SearchMeta() ([]string, error) {
 	var bnames []string
 	c := config.New()
 	sp := sftp_pool.New()
@@ -230,15 +250,16 @@ func SearchMetaSFTP() ([]string, error) {
 		return bnames, err
 	}
 	for _, file := range fileInfo {
-		if file.IsDir() && metaDirNameMatched(file.Name()){
+		if file.IsDir() && metaDirNameMatched(file.Name()) {
 			bnames = append(bnames, file.Name())
 		}
 	}
 	sort.Strings(bnames)
 	return bnames, nil
 }
+
 // DeleteBackupSFTP delete backup from archive
-func DeleteBackupSFTP(backupName string) error {
+func (ts *TransportSFTP) DeleteBackup(backupName string) error {
 	c := config.New()
 	sp := sftp_pool.New()
 	sftpCli, err := sp.GetClientLoop()
@@ -246,6 +267,5 @@ func DeleteBackupSFTP(backupName string) error {
 		return err
 	}
 	defer sp.ReleaseClient(sftpCli)
-	return sftp_pool.RemoveDirectoryRecursive(sftpCli,path.Join(c.BackupStorage.BackupDir,backupName))
+	return sftp_pool.RemoveDirectoryRecursive(sftpCli, path.Join(c.BackupStorage.BackupDir, backupName))
 }
-

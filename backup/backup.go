@@ -99,7 +99,11 @@ func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
 				return cf, nil
 			}
 		}
-		tr, err := transport.MakeTransport(cf)
+		tr, err := transport.MakeTransport()
+		if err != nil {
+			return cf, err
+		}
+		trStat, err := tr.Do(cf)
 		if err != nil {
 			if err == os.ErrNotExist {
 				log.Printf("File not Exists %s %s", err, cf.BackupSrc())
@@ -111,9 +115,9 @@ func BackupRun(cf transport.CliFile) (transport.CliFile, error) {
 			time.Sleep(time.Second * 5)
 			continue
 		}
-		cf.Sha1 = tr.Sha1Sum
-		cf.Size = tr.Size
-		cf.BSize = tr.BSize
+		cf.Sha1 = trStat.Sha1Sum
+		cf.Size = trStat.Size
+		cf.BSize = trStat.BSize
 		return cf, nil
 	}
 }
@@ -203,7 +207,11 @@ func backupMeta(db, table, fDB, fTable string) (transport.MetaFile, error) {
 		return mf, err
 	}
 	mf.Content.WriteString(meta)
-	err = transport.WriteMeta(&mf)
+	tr, err := transport.MakeTransport()
+	if err != nil {
+		return mf, err
+	}
+	err = tr.WriteMeta(&mf)
 	return mf, err
 }
 
@@ -342,7 +350,11 @@ func BackupInfoWrite(bi *backupInfo) error {
 		for {
 			mf.Content.Write(prepareBytes)
 			mf.Name = "backup.json" + s
-			err = transport.WriteMeta(&mf)
+			tr, err := transport.MakeTransport()
+			if err != nil {
+				return err
+			}
+			err = tr.WriteMeta(&mf)
 			if err != nil {
 				log.Println("Error write metafile ", mf.Path)
 				time.Sleep(time.Second * 5)

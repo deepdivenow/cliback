@@ -13,6 +13,10 @@ import (
 	"path"
 	"sort"
 )
+
+type TransportLocal struct {
+}
+
 // MakeDirsRecurse make recursive dirs on local FS
 func MakeDirsRecurse(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -23,10 +27,22 @@ func MakeDirsRecurse(path string) error {
 	}
 	return nil
 }
+func (tl *TransportLocal) Do(file CliFile) (*TransportStat, error) {
+	switch file.RunJobType {
+	case Backup:
+		return tl.Backup(file)
+	case Restore:
+		return tl.Restore(file)
+	default:
+		return nil, errTransCreate
+	}
+	return nil, errTransCreate
+}
+
 // MakeBackupTransportLocal archive file and returns meta info
-func MakeBackupTransportLocal(file CliFile) (*Transport, error) {
+func (tl *TransportLocal) Backup(file CliFile) (*TransportStat, error) {
 	c := config.New()
-	t := new(Transport)
+	t := new(TransportStat)
 	Sha1Sum := sha1.New()
 	destFile := path.Join(c.BackupStorage.BackupDir, file.Archive())
 	err := MakeDirsRecurse(path.Dir(destFile))
@@ -62,10 +78,11 @@ func MakeBackupTransportLocal(file CliFile) (*Transport, error) {
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
+
 // MakeRestoreTransportLocal restore file and returns meta info
-func MakeRestoreTransportLocal(file CliFile) (*Transport, error) {
+func (tl *TransportLocal) Restore(file CliFile) (*TransportStat, error) {
 	c := config.New()
-	t := new(Transport)
+	t := new(TransportStat)
 	Sha1Sum := sha1.New()
 
 	err := MakeDirsRecurse(path.Dir(file.RestoreDest()))
@@ -106,8 +123,9 @@ func MakeRestoreTransportLocal(file CliFile) (*Transport, error) {
 	t.Sha1Sum = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return t, nil
 }
+
 // WriteMetaLocal archive backup metafile and returns meta info
-func WriteMetaLocal(mf *MetaFile) error {
+func (tl *TransportLocal) WriteMeta(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
 	source := bufio.NewReader(&mf.Content)
@@ -136,8 +154,9 @@ func WriteMetaLocal(mf *MetaFile) error {
 	}
 	return nil
 }
+
 // ReadMetaLocal restore backup metafile and returns meta info
-func ReadMetaLocal(mf *MetaFile) error {
+func (tl *TransportLocal) ReadMeta(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
 	dest := bufio.NewWriter(&mf.Content)
@@ -186,8 +205,9 @@ func ReadMetaLocal(mf *MetaFile) error {
 	mf.Sha1 = hex.EncodeToString(sha1sum.Sum(nil))
 	return nil
 }
+
 // SearchMetaLocal search & returns backup names in archive
-func SearchMetaLocal() ([]string, error) {
+func (tl *TransportLocal) SearchMeta() ([]string, error) {
 	var backupNames []string
 	c := config.New()
 	fileInfo, err := ioutil.ReadDir(c.BackupStorage.BackupDir)
@@ -195,15 +215,16 @@ func SearchMetaLocal() ([]string, error) {
 		return backupNames, err
 	}
 	for _, file := range fileInfo {
-		if file.IsDir() && metaDirNameMatched(file.Name()){
+		if file.IsDir() && metaDirNameMatched(file.Name()) {
 			backupNames = append(backupNames, file.Name())
 		}
 	}
 	sort.Strings(backupNames)
 	return backupNames, nil
 }
+
 // DeleteBackupLocal delete backup from archive
-func DeleteBackupLocal(backupName string) error {
-	c:=config.New()
-	return os.RemoveAll(path.Join(c.BackupStorage.BackupDir,backupName))
+func (tl *TransportLocal) DeleteBackup(backupName string) error {
+	c := config.New()
+	return os.RemoveAll(path.Join(c.BackupStorage.BackupDir, backupName))
 }

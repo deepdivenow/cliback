@@ -13,12 +13,14 @@ import (
 
 // RunJobType backup or restore
 type RunJobType int
+
 // RunJobType backup or restore
 const (
 	Backup RunJobType = iota + 1
 	Restore
 )
-// CliFile struct for descript each Clickhouse Table file 
+
+// CliFile struct for descript each Clickhouse Table file
 type CliFile struct {
 	Size       int64
 	BSize      int64
@@ -31,6 +33,7 @@ type CliFile struct {
 	TryRetry   bool
 	Sha1       string
 }
+
 // Archive returns archive file name
 func (cf *CliFile) Archive() string {
 	c := config.New()
@@ -39,6 +42,7 @@ func (cf *CliFile) Archive() string {
 	}
 	return path.Join(c.TaskArgs.JobName, cf.Path, cf.Name+".gz")
 }
+
 // RestoreDest returns restore path for table file
 func (cf *CliFile) RestoreDest() string {
 	c := config.New()
@@ -60,14 +64,17 @@ func (cf *CliFile) RestoreDest() string {
 	}
 	return ""
 }
+
 // BackupSrc returns full file path for backup
 func (cf *CliFile) BackupSrc() string {
 	return path.Join(cf.Shadow, cf.Path, cf.Name)
 }
+
 // BackupSrcShort returns short file path for backup
 func (cf *CliFile) BackupSrcShort() string {
 	return path.Join(cf.Path, cf.Name)
 }
+
 // Sha1Compute compute sha1 for file
 func (cf *CliFile) Sha1Compute() error {
 	source, err := os.Open(cf.BackupSrc())
@@ -83,6 +90,7 @@ func (cf *CliFile) Sha1Compute() error {
 	cf.Sha1 = hex.EncodeToString(Sha1Sum.Sum(nil))
 	return nil
 }
+
 // MetaFile struct for save/load backup meta info
 type MetaFile struct {
 	Size     int64
@@ -94,11 +102,13 @@ type MetaFile struct {
 	Sha1     string
 	Content  bytes.Buffer
 }
-// Archive returns archive file path for metafile 
+
+// Archive returns archive file path for metafile
 func (mf *MetaFile) Archive() string {
 	return path.Join(mf.JobName, mf.Path, mf.Name+".gz")
 }
-// SPath returns file path for old type metafile  
+
+// SPath returns file path for old type metafile
 func (mf *MetaFile) SPath() string {
 	return path.Join(mf.JobName, mf.Path, mf.Name)
 }
