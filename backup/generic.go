@@ -173,11 +173,11 @@ func GetDirs(p string) ([]string, error) {
 	return result, nil
 }
 
-func GetDirsInShadow(DbDir, TableDir string) []string {
+func GetDirsInShadow(tInfo database.TableInfo) []string {
 	var result []string
 	c := config.New()
 	for storage := range c.ClickhouseStorage {
-		res, err := GetDirs(path.Join(c.GetShadow(storage), "data", DbDir, TableDir))
+		res, err := GetDirs(path.Join(c.GetShadow(storage), tInfo.GetShortPath() ))
 		if err != nil {
 			continue
 		}
@@ -202,12 +202,19 @@ func CheckStorage() error {
 
 func SplitShadow(p string) ([]string, error) {
 	dirs := strings.Split(p, "/")
-	pos, err := Position(dirs, "data")
+	pos:=-1
+	var err error
+	for _,spliter := range []string{"data","store"} {
+		pos, err = Position(dirs, spliter)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-	resultShadow := strings.Join(dirs[0:pos+1], "/")
-	resultPath := strings.Join(dirs[pos+1:pos+3], "/")
+	resultShadow := strings.Join(dirs[0:pos], "/")
+	resultPath := strings.Join(dirs[pos:pos+3], "/")
 	resultFile := strings.Join(dirs[pos+3:], "/")
 	return []string{resultShadow, resultPath, resultFile}, nil
 }

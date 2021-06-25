@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func FindFiles(jobsChan chan<- workerpool.TaskElem) {
+func FindFiles(jobsChan chan<- workerpool.TaskElem, tInfo database.TableInfo) {
 	c := config.New()
 	for storage := range c.ClickhouseStorage {
 		dirForBackup := c.GetShadow(storage)
@@ -41,6 +41,8 @@ func FindFiles(jobsChan chan<- workerpool.TaskElem) {
 					Name:       cPath[2],
 					Path:       cPath[1],
 					Shadow:     cPath[0],
+					DBName: tInfo.GetDBNameE(),
+					TableName: tInfo.GetTableNameE(),
 					RunJobType: transport.Backup,
 					TryRetry:   false,
 					Storage:    storage,
@@ -191,18 +193,18 @@ func Backup() error {
 	return nil
 }
 
-func backupMeta(db, table, fDB, fTable string) (transport.MetaFile, error) {
+func backupMeta(tInfo database.TableInfo) (transport.MetaFile, error) {
 	//mi := bi.DBS[db].MetaData[table]
 	c := config.New()
 	ch := database.New()
 	mf := transport.MetaFile{
-		Name:     fTable + ".sql",
-		Path:     fDB,
+		Name:     tInfo.TableName + ".sql",
+		Path:     tInfo.DBName,
 		JobName:  c.TaskArgs.JobName,
 		TryRetry: false,
 	}
 
-	meta, err := ch.ShowCreateTable(db, table)
+	meta, err := ch.ShowCreateTable(tInfo.DBName, tInfo.TableName)
 	if err != nil {
 		return mf, err
 	}
@@ -222,18 +224,18 @@ func backupTable(db, table, part string) (tableInfo, error) {
 	if err != nil {
 		return tableInfo{BackupStatus: "bad"}, err
 	}
-	r, err := ch.GetFNames(db, table, part)
+	tInfo, err := ch.GetTableInfo(db, table)
 	if err != nil {
 		return tableInfo{BackupStatus: "bad"}, err
 	}
 	ti := tableInfo{
-		DbDir:        r[0],
-		TableDir:     r[1],
+		DbDir:        tInfo.GetDBNameE(),
+		TableDir:     tInfo.GetTableNameE(),
 		Partitions:   parts,
 		Files:        map[string]fileInfo{},
 		BackupStatus: "bad",
 	}
-	mf, err := backupMeta(db, table, ti.DbDir, ti.TableDir)
+	mf, err := backupMeta(tInfo)
 	if err == nil {
 		ti.MetaData.Sha1 = mf.Sha1
 		ti.MetaData.Size = mf.Size
@@ -256,7 +258,7 @@ func backupTable(db, table, part string) (tableInfo, error) {
 		return tableInfo{BackupStatus: "bad"}, err
 	}
 	defer RemoveShadowDirs()
-	ti.Dirs = GetDirsInShadow(ti.DbDir, ti.TableDir)
+	ti.Dirs = GetDirsInShadow(tInfo)
 	var wpTask workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
 		return BackupRun(field)
@@ -264,7 +266,7 @@ func backupTable(db, table, part string) (tableInfo, error) {
 
 	wp := workerpool.MakeWorkerPool(wpTask, c.WorkerPool.NumWorkers, c.WorkerPool.NumRetry, c.WorkerPool.ChanLen)
 	wp.Start()
-	go FindFiles(wp.GetJobsChan())
+	go FindFiles(wp.GetJobsChan(), tInfo)
 
 	for job := range wp.GetResultsChan() {
 		j, _ := job.(transport.CliFile)

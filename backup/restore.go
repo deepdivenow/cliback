@@ -10,7 +10,6 @@ import (
 	"errors"
 	"log"
 	"os"
-	"path"
 	"time"
 )
 
@@ -165,7 +164,14 @@ func Restorev1(bi *backupInfo) error {
 				s.SetStatus(status.FailRestoreTable)
 				log.Println(err)
 			}
-			err = restoreTable(&tableInfo)
+			tm, err := ch.GetTableInfo(db, table)
+			if err != nil {
+				s := status.New()
+				s.SetStatus(status.FailRestoreTable)
+				log.Println(err)
+				return err
+			}
+			err = restoreTable(tm, &tableInfo)
 			if err != nil {
 				s := status.New()
 				s.SetStatus(status.FailRestoreTable)
@@ -205,7 +211,7 @@ func getRestoreObjects() (map[string][]string, error) {
 	return restoreObjects, nil
 }
 
-func restoreTable(ti *tableInfo) error {
+func restoreTable(tm database.TableInfo, ti *tableInfo) error {
 	c := config.New()
 	var wpTask workerpool.TaskFunc = func(i interface{}) (interface{}, error) {
 		field, _ := i.(transport.CliFile)
@@ -213,18 +219,20 @@ func restoreTable(ti *tableInfo) error {
 	}
 	wp := workerpool.MakeWorkerPool(wpTask, c.WorkerPool.NumWorkers, c.WorkerPool.NumRetry, c.WorkerPool.ChanLen)
 	wp.Start()
-	go RestoreFiles(ti, wp.GetJobsChan())
+	go RestoreFiles(ti,tm,wp.GetJobsChan())
 	for job := range wp.GetResultsChan() {
 		_, _ = job.(transport.CliFile)
 	}
 	return nil
 }
 
-func RestoreFiles(ti *tableInfo, jobsChan chan<- workerpool.TaskElem) {
+func RestoreFiles(ti *tableInfo, tm database.TableInfo, jobsChan chan<- workerpool.TaskElem, ) {
 	for file, fileInfo := range ti.Files {
 		cliF := transport.CliFile{
 			Name:       file,
-			Path:       path.Join(ti.DbDir, ti.TableDir),
+			Path:       tm.GetShortPath(),
+			DBName:     tm.DBName,
+			TableName:  tm.TableName,
 			RunJobType: transport.Restore,
 			TryRetry:   false,
 			Sha1:       fileInfo.Sha1,

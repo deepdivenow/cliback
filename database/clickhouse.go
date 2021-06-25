@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"path"
 	"regexp"
 	"strconv"
@@ -31,6 +32,36 @@ type ChDb struct {
 	reconnect bool
 	mux       sync.Mutex
 	metaOpts  ChMetaOpts
+}
+
+type TableInfo struct {
+	DBName         string
+	TableName      string
+	DBNameFS       string
+	TableNameFS    string
+	DBPath         string
+	TablePaths     []string
+	DatabaseEngine string
+	TableEngine    string
+	DatabaseUUID   string
+	TableUUID      string
+}
+
+func (ti *TableInfo) GetShortPath() string {
+	switch ti.DatabaseEngine {
+	case "Atomic":
+		return path.Join("store",ti.TableUUID[0:3],ti.TableUUID)
+	case "Ordinary":
+		return path.Join("data",ti.GetDBNameE(),ti.GetTableNameE())
+	default:
+		return ""
+	}
+}
+func (ti *TableInfo) GetDBNameE() string {
+	return url.PathEscape(ti.DBName)
+}
+func (ti *TableInfo) GetTableNameE() string {
+	return url.PathEscape(ti.TableName)
 }
 
 func New() *ChDb {
@@ -237,39 +268,64 @@ func (ch *ChDb) GetPartitions(db, table, part string) ([]string, error) {
 	}
 	return result, nil
 }
-func (ch *ChDb) GetFNames(db, table, part string) ([2]string, error) {
-	var result []string
-	var query string
-	if part == "" {
-		query = fmt.Sprintf("SELECT DISTINCT path FROM system.parts WHERE active AND database = '%s' AND table = '%s' LIMIT 1", db, table)
-	} else {
-		query = fmt.Sprintf("SELECT DISTINCT path FROM system.parts WHERE active AND database = '%s' AND table = '%s' AND partition LIKE '%s' LIMIT 1", db, table, part)
-	}
+
+func (ch *ChDb) QueryToMap(query string) (map[string]interface{}, error) {
+	result := map[string]interface{}{}
+
 	rows, err := ch.Query(query)
 	if err != nil {
-		return [2]string{}, err
+		return result, err
 	}
 	defer rows.Close()
+	cols, err := rows.Columns()
+	if err != nil {
+		return result, err
+	}
+	colNum := len(cols)
+	var values = make([]interface{}, colNum)
+	for i, _ := range values {
+		var ii interface{}
+		values[i] = &ii
+	}
 	for rows.Next() {
-		var tablePath string
-		if err := rows.Scan(&tablePath); err == nil {
-			result = append(result, tablePath)
+		if err := rows.Scan(values...); err == nil {
 		}
+		//Scan only first line
+		break
 	}
 	if err := rows.Err(); err != nil {
-		return [2]string{}, err
+		return result, err
 	}
-	if len(result) == 0 {
-		return [2]string{}, errors.New("Not found path for db.table")
+	for i, colName := range cols {
+		result[colName] = *(values[i].(*interface{}))
 	}
-	filePath := result[0]
-	if filePath[len(filePath)-1] == '/' {
-		filePath = filePath[:len(filePath)-1]
-	}
-	dirs := strings.Split(filePath, "/")
-	length := len(dirs)
-	return [2]string{dirs[length-3], dirs[length-2]}, nil
+	return result, nil
 }
+
+func (ch *ChDb) GetTableInfo(db, table string) (TableInfo, error) {
+	result := TableInfo{
+		DBName:    db,
+		TableName: table,
+	}
+	query := fmt.Sprintf("SELECT * FROM system.databases WHERE name = '%s'", db)
+	dbRes, err := ch.QueryToMap(query)
+	if err != nil {
+		return result, err
+	}
+	result.DatabaseUUID = GetStringFromMapInterface(dbRes, "uuid")
+	result.DatabaseEngine = GetStringFromMapInterface(dbRes, "engine")
+	result.DBPath = GetStringFromMapInterface(dbRes, "data_path")
+	query = fmt.Sprintf("SELECT * FROM system.tables WHERE database = '%s' AND name = '%s'", db, table)
+	tbRes, err := ch.QueryToMap(query)
+	if err != nil {
+		return result, err
+	}
+	result.TableUUID = GetStringFromMapInterface(tbRes, "uuid")
+	result.TableEngine = GetStringFromMapInterface(tbRes, "engine")
+	result.TablePaths = GetStringsFromMapInterface(tbRes, "data_paths")
+	return result, nil
+}
+
 func (ch *ChDb) GetDisks() (map[string]string, error) {
 	result := map[string]string{}
 	query := "SELECT name,path FROM system.disks"
@@ -291,24 +347,24 @@ func (ch *ChDb) GetDisks() (map[string]string, error) {
 }
 func (ch *ChDb) GetDBProps(dbName string) (map[string]string, error) {
 	result := map[string]string{}
-	query := fmt.Sprintf("SELECT name,engine,data_path,metadata_path,uuid FROM system.databases WHERE name='%s'",dbName)
+	query := fmt.Sprintf("SELECT name,engine,data_path,metadata_path,uuid FROM system.databases WHERE name='%s'", dbName)
 	rows, err := ch.Query(query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		cols,err := rows.Columns()
+		cols, err := rows.Columns()
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 		scan := []interface{}{}
-		for i:=0;i<len(cols);i++ {
-			str:=""
-			scan=append(scan, &str)
+		for i := 0; i < len(cols); i++ {
+			str := ""
+			scan = append(scan, &str)
 		}
 		if err := rows.Scan(scan...); err == nil {
-			for i,c := range cols {
+			for i, c := range cols {
 				result[c] = *scan[i].(*string)
 			}
 		}
@@ -444,4 +500,44 @@ func (ch *ChDb) AttachPartitionByDir(db, table, dir string) error {
 	log.Printf("Attach Unknown part AS dir `%s`.`%s`.%s", db, table, dir)
 	_, err := ch.Execute(query)
 	return err
+}
+
+// Contains tells whether a contains x.
+func Contains(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
+func GetStringFromMapInterface(m map[string]interface{}, k string) string {
+	var v interface{}
+	var ok bool
+	if v, ok = m[k]; !ok {
+		return ""
+	}
+	switch v.(type) {
+	case string:
+		return v.(string)
+	default:
+		return ""
+	}
+	return ""
+}
+
+func GetStringsFromMapInterface(m map[string]interface{}, k string) []string {
+	var v interface{}
+	var ok bool
+	if v, ok = m[k]; !ok {
+		return []string{}
+	}
+	switch v.(type) {
+	case []string:
+		return v.([]string)
+	default:
+		return []string{}
+	}
+	return []string{}
 }

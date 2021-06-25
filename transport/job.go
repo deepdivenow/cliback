@@ -26,6 +26,8 @@ type CliFile struct {
 	BSize      int64
 	Name       string
 	Path       string
+	DBName     string
+	TableName  string
 	Reference  string
 	Shadow     string
 	Storage    string
@@ -38,11 +40,12 @@ type CliFile struct {
 func (cf *CliFile) Archive() string {
 	c := config.New()
 	if len(cf.Reference) > 0 {
-		return path.Join(cf.Reference, cf.Path, cf.Name+".gz")
+		return path.Join(cf.Reference, cf.DBName, cf.TableName, cf.Name+".gz")
 	}
-	return path.Join(c.TaskArgs.JobName, cf.Path, cf.Name+".gz")
+	return path.Join(c.TaskArgs.JobName, cf.DBName, cf.TableName, cf.Name+".gz")
 }
 
+///need refactor
 // RestoreDest returns restore path for table file
 func (cf *CliFile) RestoreDest() string {
 	c := config.New()
@@ -51,12 +54,12 @@ func (cf *CliFile) RestoreDest() string {
 		store = "default"
 	}
 	if storagePath, ok := c.ClickhouseStorage[store]; ok {
-		return path.Join(storagePath, "data", cf.Path, "detached", cf.Name)
+		return path.Join(storagePath, cf.Path, "detached", cf.Name)
 	}
 	if c.ClickhouseRestoreOpts.BadStorageToDefault {
 		store = "default"
 		if storagePath, ok := c.ClickhouseStorage[store]; ok {
-			return path.Join(storagePath, "data", cf.Path, "detached", cf.Name)
+			return path.Join(storagePath, cf.Path, "detached", cf.Name)
 		}
 	}
 	if c.ClickhouseRestoreOpts.FailIfStorageNotExists {

@@ -8,7 +8,7 @@ var (
 		majorVer: 0,
 		minorVer: 8,
 	}
-	BuildVer=""
+	BuildVer = ""
 )
 
 type cliBackVersion struct {
@@ -17,6 +17,6 @@ type cliBackVersion struct {
 	progName string
 }
 
-func (c *cliBackVersion) GetVersion () string {
-	return fmt.Sprintf("%s version %d.%d %s", c.progName,c.majorVer, c.minorVer, BuildVer)
+func (c *cliBackVersion) GetVersion() string {
+	return fmt.Sprintf("%s version %d.%d %s", c.progName, c.majorVer, c.minorVer, BuildVer)
 }

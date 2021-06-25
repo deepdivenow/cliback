@@ -27,7 +27,7 @@ func MakeSshClientConfig(c map[string]string) ssh.ClientConfig {
 	}
 	homePath, exists := os.LookupEnv("HOME")
 	if exists {
-		for _, p := range []string{path.Join(homePath, ".ssh/id_rsa"), path.Join(homePath, ".ssh/id_sda")} {
+		for _, p := range []string{path.Join(homePath, ".ssh/id_rsa"), path.Join(homePath, ".ssh/id_dsa")} {
 			fi, err := os.Stat(p)
 			if err == nil && !fi.IsDir() {
 				pkeyPaths = append(pkeyPaths, p)
