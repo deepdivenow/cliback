@@ -289,6 +289,35 @@ func (ch *ChDb) GetDisks() (map[string]string, error) {
 	}
 	return result, nil
 }
+func (ch *ChDb) GetDBProps(dbName string) (map[string]string, error) {
+	result := map[string]string{}
+	query := fmt.Sprintf("SELECT name,engine,data_path,metadata_path,uuid FROM system.databases WHERE name='%s'",dbName)
+	rows, err := ch.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		cols,err := rows.Columns()
+		if err != nil {
+			return nil,err
+		}
+		scan := []interface{}{}
+		for i:=0;i<len(cols);i++ {
+			str:=""
+			scan=append(scan, &str)
+		}
+		if err := rows.Scan(scan...); err == nil {
+			for i,c := range cols {
+				result[c] = *scan[i].(*string)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 func (ch *ChDb) FreezeTable(db, table, part string) error {
 	var query string
 	if part == "" {

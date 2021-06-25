@@ -118,6 +118,14 @@ func Restorev1(bi *backupInfo) error {
 			s.SetStatus(status.FailRestoreDatabase)
 			log.Printf("Create database error: %v", err)
 		}
+		dbProps, err := ch.GetDBProps(db)
+		println(dbProps)
+		if err != nil {
+			s := status.New()
+			s.SetStatus(status.FailRestoreDatabase)
+			log.Printf("Get database prefs error: %v", err)
+		}
+
 		for table, tableInfo := range dbInfo.Tables {
 			if !needRestore(db, table) {
 				continue

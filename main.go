@@ -6,6 +6,7 @@ import (
 	"cliback/status"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 )
@@ -15,6 +16,8 @@ type MainArgs struct {
 	backupMode  bool
 	restoreMode bool
 	infoMode    bool
+	debug       bool
+	version     bool
 	jobID       string
 	partID      string
 	backupType  string
@@ -29,6 +32,9 @@ func (ma *MainArgs) parseMode() error {
 		modeCount++
 	}
 	if ma.infoMode {
+		modeCount++
+	}
+	if ma.version {
 		modeCount++
 	}
 	if modeCount == 1 {
@@ -55,8 +61,10 @@ func main() {
 	flag.BoolVar(&cargs.backupMode, "b", false, "Run backup job (shotland)")
 	flag.BoolVar(&cargs.infoMode, "info", false, "Get Info about backups")
 	flag.BoolVar(&cargs.infoMode, "i", false, "Get Info about backups (shotland)")
-	flag.BoolVar(&cargs.infoMode, "debug", false, "Debug messages")
-	flag.BoolVar(&cargs.infoMode, "d", false, "Debug messages (shotland)")
+	flag.BoolVar(&cargs.version, "verion", false, "Get version")
+	flag.BoolVar(&cargs.version, "v", false, "Get version (shotland)")
+	flag.BoolVar(&cargs.debug, "debug", false, "Debug messages")
+	flag.BoolVar(&cargs.debug, "d", false, "Debug messages (shotland)")
 	flag.StringVar(&cargs.configFile, "config", "clickhouse_backup.yaml", "path to config file")
 	flag.StringVar(&cargs.configFile, "c", "clickhouse_backup.yaml", "path to config file (shotland)")
 	flag.StringVar(&cargs.jobID, "jobid", "", "JobId for restore")
@@ -94,7 +102,9 @@ func main() {
 	if c.WorkerPool.NumWorkers < 1 {
 		c.WorkerPool.NumWorkers = 8
 	}
-	if cargs.infoMode {
+	if cargs.version {
+		fmt.Println(cliBackVer.GetVersion())
+	} else if cargs.infoMode {
 		c.TaskArgs.JobType = config.Info
 		err = backup.Info()
 		if err != nil {

@@ -2,21 +2,19 @@ backup_storage:
   type: webdav
   backup_conn:
     hostname: 'stich'
-    username: 'admin'
-    password: 'admin'
-    secure: false
-    port: 8082
+    username: 'dro'
+    port: 22
 #    key_filename: '/home/dro/.ssh/id_rsa'
-  backup_dir: '/'
+  backup_dir: '/dro/work/click_back'
 #  type: local
 #  backup_dir: '/home/dro/DOWN/click_back'
 clickhouse_backup_conn:
   hostname: centos01
-#  username: default
-#  password: default
-#  port: 9000
-#  secure: true
-#  skip_verify: true
+  username: default
+  password: default
+  port: 9000
+  secure: true
+  skip_verify: true
 clickhouse_restore_conn:
   hostname: centos02
 #  username: default
@@ -39,7 +37,7 @@ retention_backup_full: 10
 #  num_workers: 8
 #  chan_len: 10
 backup_filter:
-  tutorial:
+  default:
 #    - ontime
 
 
