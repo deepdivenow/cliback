@@ -177,7 +177,7 @@ func GetDirsInShadow(tInfo database.TableInfo) []string {
 	var result []string
 	c := config.New()
 	for storage := range c.ClickhouseStorage {
-		res, err := GetDirs(path.Join(c.GetShadow(storage), tInfo.GetShortPath() ))
+		res, err := GetDirs(path.Join(c.GetShadow(storage), tInfo.GetShortPath()))
 		if err != nil {
 			continue
 		}
@@ -202,9 +202,9 @@ func CheckStorage() error {
 
 func SplitShadow(p string) ([]string, error) {
 	dirs := strings.Split(p, "/")
-	pos:=-1
+	pos := -1
 	var err error
-	for _,spliter := range []string{"data","store"} {
+	for _, spliter := range []string{"data", "store"} {
 		pos, err = Position(dirs, spliter)
 		if err == nil {
 			break

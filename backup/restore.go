@@ -219,14 +219,14 @@ func restoreTable(tm database.TableInfo, ti *tableInfo) error {
 	}
 	wp := workerpool.MakeWorkerPool(wpTask, c.WorkerPool.NumWorkers, c.WorkerPool.NumRetry, c.WorkerPool.ChanLen)
 	wp.Start()
-	go RestoreFiles(ti,tm,wp.GetJobsChan())
+	go RestoreFiles(ti, tm, wp.GetJobsChan())
 	for job := range wp.GetResultsChan() {
 		_, _ = job.(transport.CliFile)
 	}
 	return nil
 }
 
-func RestoreFiles(ti *tableInfo, tm database.TableInfo, jobsChan chan<- workerpool.TaskElem, ) {
+func RestoreFiles(ti *tableInfo, tm database.TableInfo, jobsChan chan<- workerpool.TaskElem) {
 	for file, fileInfo := range ti.Files {
 		cliF := transport.CliFile{
 			Name:       file,

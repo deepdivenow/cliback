@@ -4,9 +4,10 @@ backup_storage:
     hostname: 'stich'
     username: 'admin'
     password: 'admin'
-    secure: false
+    secure: true
+    skip_verify: true
     port: 8082
-#    key_filename: '/home/dro/.ssh/id_rsa'
+  #    key_filename: '/home/dro/.ssh/id_rsa'
   backup_dir: '/'
 #  type: local
 #  backup_dir: '/home/dro/DOWN/click_back'
@@ -18,7 +19,7 @@ clickhouse_backup_conn:
 #  secure: true
 #  skip_verify: true
 clickhouse_restore_conn:
-  hostname: centos02
+  hostname: centos01
 #  username: default
 #  password: default
 #  port: 9000
@@ -41,5 +42,3 @@ retention_backup_full: 10
 backup_filter:
   tutorial:
 #    - ontime
-
-

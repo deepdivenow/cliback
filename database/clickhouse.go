@@ -50,9 +50,9 @@ type TableInfo struct {
 func (ti *TableInfo) GetShortPath() string {
 	switch ti.DatabaseEngine {
 	case "Atomic":
-		return path.Join("store",ti.TableUUID[0:3],ti.TableUUID)
+		return path.Join("store", ti.TableUUID[0:3], ti.TableUUID)
 	case "Ordinary":
-		return path.Join("data",ti.GetDBNameE(),ti.GetTableNameE())
+		return path.Join("data", ti.GetDBNameE(), ti.GetTableNameE())
 	default:
 		return ""
 	}
