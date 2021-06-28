@@ -15,11 +15,37 @@ import (
 	"os"
 	"path"
 	"sort"
+	"sync"
+	"time"
 )
+
+var (
+	once     sync.Once
+	instance *gowebdav.Client
+)
+
+func GetWDCli() *gowebdav.Client {
+	once.Do(func() {
+		c := config.New()
+		instance = gowebdav.NewClient(getConnectLink(), c.BackupStorage.BackupConn.UserName, c.BackupStorage.BackupConn.Password)
+		tr := &http.Transport{
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			MaxIdleConns:          c.WorkerPool.NumWorkers + 2,
+			IdleConnTimeout:       5,
+		}
+		if c.BackupStorage.BackupConn.Secure && c.BackupStorage.BackupConn.SkipVerify {
+			tr.TLSClientConfig = &tls.Config{ InsecureSkipVerify: true }
+		}
+		instance.SetTransport(tr)
+	})
+	return instance
+}
 
 type TransportWebDav struct{}
 
-func (twd *TransportWebDav) getConnectLink() string {
+func getConnectLink() string {
 	c := config.New()
 	link := ""
 	if c.BackupStorage.BackupConn.Secure {
@@ -47,15 +73,7 @@ func (twd *TransportWebDav) Backup(file CliFile) (*TransportStat, error) {
 	c := config.New()
 	t := new(TransportStat)
 	Sha1Sum := sha1.New()
-	wdCli := gowebdav.NewClient(twd.getConnectLink(), c.BackupStorage.BackupConn.UserName, c.BackupStorage.BackupConn.Password)
-	if c.BackupStorage.BackupConn.Secure && c.BackupStorage.BackupConn.SkipVerify {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		wdCli.SetTransport(tr)
-	}
+	wdCli := GetWDCli()
 	err := wdCli.Connect()
 	if err != nil {
 		return t, err
@@ -72,6 +90,7 @@ func (twd *TransportWebDav) Backup(file CliFile) (*TransportStat, error) {
 	defer source.Close()
 
 	pr, pw := io.Pipe()
+	defer pr.Close()
 	gzw := gzip.NewWriter(pw)
 	mwr := io.MultiWriter(gzw, Sha1Sum)
 	go func() {
@@ -113,15 +132,7 @@ func (twd *TransportWebDav) Restore(file CliFile) (*TransportStat, error) {
 	}
 	defer dest.Close()
 
-	wdCli := gowebdav.NewClient(twd.getConnectLink(), c.BackupStorage.BackupConn.UserName, c.BackupStorage.BackupConn.Password)
-	if c.BackupStorage.BackupConn.Secure && c.BackupStorage.BackupConn.SkipVerify {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		wdCli.SetTransport(tr)
-	}
+	wdCli := GetWDCli()
 	err = wdCli.Connect()
 	if err != nil {
 		return t, err
@@ -159,15 +170,7 @@ func (twd *TransportWebDav) ReadMeta(mf *MetaFile) error {
 	sha1sum := sha1.New()
 	dest := bufio.NewWriter(&mf.Content)
 	mwr := io.MultiWriter(sha1sum, dest)
-	wdCli := gowebdav.NewClient(twd.getConnectLink(), c.BackupStorage.BackupConn.UserName, c.BackupStorage.BackupConn.Password)
-	if c.BackupStorage.BackupConn.Secure && c.BackupStorage.BackupConn.SkipVerify {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		wdCli.SetTransport(tr)
-	}
+	wdCli := GetWDCli()
 	err := wdCli.Connect()
 	if err != nil {
 		return err
@@ -229,15 +232,7 @@ func (twd *TransportWebDav) ReadMeta(mf *MetaFile) error {
 func (twd *TransportWebDav) WriteMeta(mf *MetaFile) error {
 	c := config.New()
 	sha1sum := sha1.New()
-	wdCli := gowebdav.NewClient(twd.getConnectLink(), c.BackupStorage.BackupConn.UserName, c.BackupStorage.BackupConn.Password)
-	if c.BackupStorage.BackupConn.Secure && c.BackupStorage.BackupConn.SkipVerify {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		wdCli.SetTransport(tr)
-	}
+	wdCli := GetWDCli()
 	err := wdCli.Connect()
 	if err != nil {
 		return err
@@ -277,15 +272,7 @@ func (twd *TransportWebDav) WriteMeta(mf *MetaFile) error {
 func (twd *TransportWebDav) SearchMeta() ([]string, error) {
 	var bnames []string
 	c := config.New()
-	wdCli := gowebdav.NewClient(twd.getConnectLink(), c.BackupStorage.BackupConn.UserName, c.BackupStorage.BackupConn.Password)
-	if c.BackupStorage.BackupConn.Secure && c.BackupStorage.BackupConn.SkipVerify {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		wdCli.SetTransport(tr)
-	}
+	wdCli := GetWDCli()
 	err := wdCli.Connect()
 	if err != nil {
 		return bnames, err
@@ -305,15 +292,7 @@ func (twd *TransportWebDav) SearchMeta() ([]string, error) {
 
 func (twd *TransportWebDav) DeleteBackup(backupName string) error {
 	c := config.New()
-	wdCli := gowebdav.NewClient(twd.getConnectLink(), c.BackupStorage.BackupConn.UserName, c.BackupStorage.BackupConn.Password)
-	if c.BackupStorage.BackupConn.Secure && c.BackupStorage.BackupConn.SkipVerify {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		wdCli.SetTransport(tr)
-	}
+	wdCli := GetWDCli()
 	err := wdCli.Connect()
 	if err != nil {
 		return err
