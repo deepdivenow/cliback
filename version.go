@@ -6,7 +6,7 @@ var (
 	cliBackVer = cliBackVersion{
 		progName: "CliBack",
 		majorVer: 0,
-		minorVer: 8,
+		minorVer: 9,
 	}
 	BuildVer = ""
 )

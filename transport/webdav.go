@@ -36,7 +36,7 @@ func GetWDCli() *gowebdav.Client {
 			IdleConnTimeout:       5,
 		}
 		if c.BackupStorage.BackupConn.Secure && c.BackupStorage.BackupConn.SkipVerify {
-			tr.TLSClientConfig = &tls.Config{ InsecureSkipVerify: true }
+			tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		}
 		instance.SetTransport(tr)
 	})
@@ -79,9 +79,12 @@ func (twd *TransportWebDav) Backup(file CliFile) (*TransportStat, error) {
 		return t, err
 	}
 	destFile := path.Join(c.BackupStorage.BackupDir, file.Archive())
-	err = wdCli.MkdirAll(path.Dir(destFile), 0755)
+	_, err = wdCli.Stat(path.Dir(destFile))
 	if err != nil {
-		return t, err
+		err = wdCli.MkdirAll(path.Dir(destFile), 0755)
+		if err != nil {
+			return t, err
+		}
 	}
 	source, err := os.Open(file.BackupSrc())
 	if err != nil {
@@ -238,7 +241,13 @@ func (twd *TransportWebDav) WriteMeta(mf *MetaFile) error {
 		return err
 	}
 	destFile := path.Join(c.BackupStorage.BackupDir, mf.Archive())
-	err = wdCli.MkdirAll(path.Dir(destFile), 0775)
+	_, err = wdCli.Stat(path.Dir(destFile))
+	if err != nil {
+		err = wdCli.MkdirAll(path.Dir(destFile), 0755)
+		if err != nil {
+			return err
+		}
+	}
 	if err != nil {
 		return err
 	}
