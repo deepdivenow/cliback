@@ -61,7 +61,7 @@ func main() {
 	flag.BoolVar(&cargs.backupMode, "b", false, "Run backup job (shotland)")
 	flag.BoolVar(&cargs.infoMode, "info", false, "Get Info about backups")
 	flag.BoolVar(&cargs.infoMode, "i", false, "Get Info about backups (shotland)")
-	flag.BoolVar(&cargs.version, "verion", false, "Get version")
+	flag.BoolVar(&cargs.version, "version", false, "Get version")
 	flag.BoolVar(&cargs.version, "v", false, "Get version (shotland)")
 	flag.BoolVar(&cargs.debug, "debug", false, "Debug messages")
 	flag.BoolVar(&cargs.debug, "d", false, "Debug messages (shotland)")
@@ -80,6 +80,10 @@ func main() {
 		println(err)
 		flag.Usage()
 		log.Fatalf("Exit by error on parse cmd args")
+	}
+	if cargs.version {
+		fmt.Println(cliBackVer.GetVersion())
+		os.Exit(0)
 	}
 	s := status.New()
 	c := config.New()
@@ -102,9 +106,7 @@ func main() {
 	if c.WorkerPool.NumWorkers < 1 {
 		c.WorkerPool.NumWorkers = 8
 	}
-	if cargs.version {
-		fmt.Println(cliBackVer.GetVersion())
-	} else if cargs.infoMode {
+    if cargs.infoMode {
 		c.TaskArgs.JobType = config.Info
 		err = backup.Info()
 		if err != nil {
