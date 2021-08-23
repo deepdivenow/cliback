@@ -306,5 +306,5 @@ func (twd *TransportWebDav) DeleteBackup(backupName string) error {
 	if err != nil {
 		return err
 	}
-	return wdCli.RemoveAll(path.Join(c.BackupStorage.BackupDir, backupName))
+	return wdCli.RemoveAll(gowebdav.FixSlash(path.Join(c.BackupStorage.BackupDir, backupName)))
 }
