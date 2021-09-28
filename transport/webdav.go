@@ -29,9 +29,9 @@ func GetWDCli() *gowebdav.Client {
 		c := config.New()
 		instance = gowebdav.NewClient(getConnectLink(), c.BackupStorage.BackupConn.UserName, c.BackupStorage.BackupConn.Password)
 		tr := &http.Transport{
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
+			TLSHandshakeTimeout:   1 * time.Minute,
+			ResponseHeaderTimeout: 5 * time.Minute,
+			ExpectContinueTimeout: 1 * time.Minute,
 			MaxIdleConns:          c.WorkerPool.NumWorkers + 2,
 			IdleConnTimeout:       5,
 		}
