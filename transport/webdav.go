@@ -8,7 +8,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
-	"github.com/studio-b12/gowebdav"
+	"github.com/deepdivenow/gowebdav"
 	"io"
 	"log"
 	"net/http"
